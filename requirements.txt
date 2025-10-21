@@ -1,27 +1,26 @@
 # Telegram Bot
-python-telegram-bot[ext]==21.6
-python-telegram-bot[rate-limiter]==21.6
+python-telegram-bot[ext]
+python-telegram-bot[rate-limiter]
 
 # Database ORM and adapters
-SQLAlchemy==2.0.35
-psycopg2-binary==2.9.10  # For PostgreSQL
-alembic==1.13.3
+SQLAlchemy
+psycopg2-binary
+alembic
 
 # Yandex S3 Storage
-boto3==1.35.50
-botocore==1.35.50
+boto3
+botocore
 
 # Cryptography
-cryptography==43.0.1
+cryptography
 
 # Environment variables
-python-dotenv==1.0.1
-
+python-dotenv
 # Task Scheduling
-APScheduler==3.11.0
+APScheduler
 
 # Date/time parsing
-python-dateutil==2.9.0.post0
+python-dateutil
 
 # Timezone support
-pytz==2024.2
+pytz

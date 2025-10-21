@@ -1,0 +1,124 @@
+# src/scheduler.py
+from datetime import datetime, timezone
+from io import BytesIO
+from sqlalchemy import select, and_, update as sqlalchemy_update
+from telegram.ext import Application
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.date import DateTrigger
+from .config import logger
+from .database import engine, capsules, users
+from .s3_utils import download_and_decrypt_file
+from .translations import t
+
+async def deliver_capsule(bot, capsule_id: int):
+    """Deliver a time capsule"""
+    try:
+        with engine.connect() as conn:
+            # Get capsule data
+            capsule_row = conn.execute(
+                select(capsules, users)
+                .join(users, capsules.c.user_id == users.c.id)
+                .where(capsules.c.id == capsule_id)
+            ).first()
+
+            if not capsule_row:
+                logger.error(f"Capsule {capsule_id} not found")
+                return
+
+            capsule_data = dict(capsule_row._mapping)
+            sender_name = capsule_data['first_name'] or capsule_data['username'] or 'Anonymous'
+
+            # Get recipient
+            recipient_id = capsule_data['recipient_id']
+            lang = capsule_data['language_code']
+
+            # Prepare message
+            delivery_text = t(lang, 'delivery_text',
+                            created=capsule_data['created_at'].strftime('%d.%m.%Y %H:%M'),
+                            sender=sender_name)
+
+            # Send content based on type
+            if capsule_data['content_type'] == 'text':
+                await bot.send_message(
+                    chat_id=recipient_id,
+                    text=f"{t(lang, 'delivery_title')}\n\n{delivery_text}\n\n{capsule_data['content_text']}"
+                )
+            else:
+                # Download and decrypt file
+                file_bytes = download_and_decrypt_file(
+                    capsule_data['s3_key'],
+                    capsule_data['file_key']
+                )
+
+                if file_bytes:
+                    file_obj = BytesIO(file_bytes)
+
+                    if capsule_data['content_type'] == 'photo':
+                        await bot.send_photo(
+                            chat_id=recipient_id,
+                            photo=file_obj,
+                            caption=delivery_text
+                        )
+                    elif capsule_data['content_type'] == 'video':
+                        await bot.send_video(
+                            chat_id=recipient_id,
+                            video=file_obj,
+                            caption=delivery_text
+                        )
+                    elif capsule_data['content_type'] == 'document':
+                        await bot.send_document(
+                            chat_id=recipient_id,
+                            document=file_obj,
+                            caption=delivery_text
+                        )
+                    elif capsule_data['content_type'] == 'voice':
+                        await bot.send_voice(
+                            chat_id=recipient_id,
+                            voice=file_obj,
+                            caption=delivery_text
+                        )
+
+            # Mark as delivered
+            conn.execute(
+                sqlalchemy_update(capsules)
+                .where(capsules.c.id == capsule_id)
+                .values(delivered=True, delivered_at=datetime.now(timezone.utc))
+            )
+            conn.commit()
+
+            logger.info(f"Capsule {capsule_id} delivered successfully")
+
+    except Exception as e:
+        logger.error(f"Error delivering capsule {capsule_id}: {e}")
+
+def init_scheduler(application: Application) -> AsyncIOScheduler:
+    """Initialize scheduler and load pending capsules"""
+    scheduler = AsyncIOScheduler()
+
+    try:
+        with engine.connect() as conn:
+            pending_capsules = conn.execute(
+                select(capsules)
+                .where(and_(
+                    capsules.c.delivered == False,
+                    capsules.c.delivery_time > datetime.now(timezone.utc)
+                ))
+            ).fetchall()
+
+            for capsule in pending_capsules:
+                cap_dict = dict(capsule._mapping)
+                scheduler.add_job(
+                    deliver_capsule,
+                    trigger=DateTrigger(run_date=cap_dict['delivery_time']),
+                    args=[application.bot, cap_dict['id']],
+                    id=f"capsule_{cap_dict['id']}",
+                    replace_existing=True
+                )
+
+            logger.info(f"Scheduled {len(pending_capsules)} pending capsules")
+
+    except Exception as e:
+        logger.error(f"Error initializing scheduler: {e}")
+
+    scheduler.start()
+    return scheduler
