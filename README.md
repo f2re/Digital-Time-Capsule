@@ -289,11 +289,6 @@ For issues and feature requests, please contact the developer or open an issue.
 - [ ] More payment methods
 - [ ] Capsule templates
 
-## 📞 Contact
-
-- Telegram: @your_username
-- Email: your_email@example.com
-
 ---
 
 Made with ❤️ for preserving memories across time
