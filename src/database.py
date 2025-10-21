@@ -139,3 +139,15 @@ def check_user_quota(user_data: Dict, file_size: int = 0) -> tuple[bool, str]:
         return False, f"Storage limit reached: {used_mb:.1f}/{limit_mb:.1f} MB"
 
     return True, ""
+
+def delete_capsule(capsule_id: int):
+    """Delete a capsule from the database"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                capsules.delete().where(capsules.c.id == capsule_id)
+            )
+            conn.commit()
+            logger.info(f"Capsule {capsule_id} deleted from database")
+    except Exception as e:
+        logger.error(f"Error deleting capsule {capsule_id} from database: {e}")

@@ -6,8 +6,8 @@ from telegram.ext import Application
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
 from .config import logger
-from .database import engine, capsules, users
-from .s3_utils import download_and_decrypt_file
+from .database import engine, capsules, users, delete_capsule
+from .s3_utils import download_and_decrypt_file, delete_file_from_s3
 from .translations import t
 
 async def deliver_capsule(bot, capsule_id: int):
@@ -78,15 +78,14 @@ async def deliver_capsule(bot, capsule_id: int):
                             caption=delivery_text
                         )
 
-            # Mark as delivered
-            conn.execute(
-                sqlalchemy_update(capsules)
-                .where(capsules.c.id == capsule_id)
-                .values(delivered=True, delivered_at=datetime.now(timezone.utc))
-            )
-            conn.commit()
+            # Delete from S3 if applicable
+            if capsule_data['s3_key']:
+                delete_file_from_s3(capsule_data['s3_key'])
 
-            logger.info(f"Capsule {capsule_id} delivered successfully")
+            # Delete from database
+            delete_capsule(capsule_id)
+
+            logger.info(f"Capsule {capsule_id} delivered and deleted successfully")
 
     except Exception as e:
         logger.error(f"Error delivering capsule {capsule_id}: {e}")
@@ -99,10 +98,7 @@ def init_scheduler(application: Application) -> AsyncIOScheduler:
         with engine.connect() as conn:
             pending_capsules = conn.execute(
                 select(capsules)
-                .where(and_(
-                    capsules.c.delivered == False,
-                    capsules.c.delivery_time > datetime.now(timezone.utc)
-                ))
+                .where(capsules.c.delivered == False)
             ).fetchall()
 
             for capsule in pending_capsules:

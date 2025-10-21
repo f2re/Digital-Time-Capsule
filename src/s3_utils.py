@@ -92,3 +92,20 @@ def download_and_decrypt_file(s3_key: str, encrypted_file_key: bytes) -> Optiona
     except Exception as e:
         logger.error(f"Error in download_and_decrypt_file: {e}")
         return None
+
+def delete_file_from_s3(s3_key: str):
+    """Delete file from S3"""
+    try:
+        s3_client = get_s3_client()
+        if not s3_client:
+            logger.error("S3 client not available for deletion")
+            return
+
+        s3_client.delete_object(
+            Bucket=YANDEX_BUCKET_NAME,
+            Key=s3_key
+        )
+        logger.info(f"File deleted from S3: {s3_key}")
+
+    except Exception as e:
+        logger.error(f"Error deleting file from S3 {s3_key}: {e}")
