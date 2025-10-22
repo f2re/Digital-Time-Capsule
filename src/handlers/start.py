@@ -1,72 +1,74 @@
 # src/handlers/start.py
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
-from ..database import get_user_data, users
+from ..database import get_or_create_user, update_user_language,get_user_data
 from ..translations import t
 from ..config import SELECTING_LANG, SELECTING_ACTION, logger
 from .main_menu import get_main_menu_keyboard
-from sqlalchemy import insert
-from ..database import engine
+import os
+
+WELCOME_IMAGE_PATH = os.path.join(
+    os.path.dirname(__file__), 
+    '..', '..', 
+    'assets', 
+    'welcome.png'
+)
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start command handler - shows language selection for new users"""
     user = update.effective_user
     
-    # Check if user exists
-    user_data = get_user_data(user.id)
+    # Get or create user
+    user_id = get_or_create_user(user)
     
+    if not user_id:
+        await update.message.reply_text("An error occurred. Please try again later.")
+        return ConversationHandler.END
+
+    user_data = get_user_data(user.id)
+
     if not user_data:
-        # New user - show language selection
         keyboard = [
             [InlineKeyboardButton('🇷🇺 Русский', callback_data='set_lang_ru')],
             [InlineKeyboardButton('🇬🇧 English', callback_data='set_lang_en')]
         ]
         
-        await update.message.reply_text(
-            "🌐 Выберите язык / Select language:",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        with open(WELCOME_IMAGE_PATH, 'rb') as photo_file:
+            await update.message.reply_photo(
+                photo=photo_file,
+                caption="🌐 Выберите язык / Select language:",
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         return SELECTING_LANG
     else:
-        # Existing user - show main menu
         lang = user_data['language_code']
-        await update.message.reply_text(
-            t(lang, 'start_welcome'),
-            reply_markup=get_main_menu_keyboard(lang)
-        )
+        with open(WELCOME_IMAGE_PATH, 'rb') as photo_file:
+            await update.message.reply_photo(
+                photo=photo_file,
+                caption=t(lang, 'start_welcome_full'),
+                reply_markup=get_main_menu_keyboard(lang),
+                parse_mode='HTML'
+            )
         return SELECTING_ACTION
 
 async def select_language(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle language selection for new users"""
+    """Handle language selection"""
     query = update.callback_query
     await query.answer()
     
     user = update.effective_user
     selected_lang = query.data.replace('set_lang_', '')  # 'ru' or 'en'
     
-    # Create user with selected language
-    try:
-        with engine.connect() as conn:
-            conn.execute(
-                insert(users).values(
-                    telegram_id=user.id,
-                    username=user.username,
-                    first_name=user.first_name,
-                    language_code=selected_lang
-                )
-            )
-            conn.commit()
-        
+    # Update user language
+    if update_user_language(user.id, selected_lang):
         # Show welcome message in selected language
         await query.edit_message_text(
             t(selected_lang, 'start_welcome'),
             reply_markup=get_main_menu_keyboard(selected_lang)
         )
         
-        logger.info(f"New user {user.id} registered with language: {selected_lang}")
+        logger.info(f"User {user.id} selected language: {selected_lang}")
         return SELECTING_ACTION
-        
-    except Exception as e:
-        logger.error(f"Error creating user: {e}")
-        await query.edit_message_text("Error. Please try /start again.")
+    else:
+        await query.edit_message_text("Error setting language. Please try /start again.")
         return ConversationHandler.END

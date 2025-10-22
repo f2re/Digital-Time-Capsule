@@ -90,9 +90,27 @@ async def deliver_capsule(bot, capsule_id: int):
     except Exception as e:
         logger.error(f"Error delivering capsule {capsule_id}: {e}")
 
+async def check_due_capsules(bot):
+    """Check for and deliver capsules that are due"""
+    try:
+        with engine.connect() as conn:
+            due_capsules = conn.execute(
+                select(capsules)
+                .where(and_(
+                    capsules.c.delivery_time <= datetime.now(timezone.utc),
+                    capsules.c.delivered == False
+                ))
+            ).fetchall()
+
+            for capsule in due_capsules:
+                await deliver_capsule(bot, capsule.id)
+
+    except Exception as e:
+        logger.error(f"Error checking for due capsules: {e}")
+
 def init_scheduler(application: Application) -> AsyncIOScheduler:
     """Initialize scheduler and load pending capsules"""
-    scheduler = AsyncIOScheduler()
+    scheduler = AsyncIOScheduler(timezone=timezone.utc)
 
     try:
         with engine.connect() as conn:
@@ -103,18 +121,39 @@ def init_scheduler(application: Application) -> AsyncIOScheduler:
 
             for capsule in pending_capsules:
                 cap_dict = dict(capsule._mapping)
-                scheduler.add_job(
-                    deliver_capsule,
-                    trigger=DateTrigger(run_date=cap_dict['delivery_time']),
-                    args=[application.bot, cap_dict['id']],
-                    id=f"capsule_{cap_dict['id']}",
-                    replace_existing=True
-                )
+                delivery_time = cap_dict['delivery_time'].replace(tzinfo=timezone.utc)
+
+                if delivery_time <= datetime.now(timezone.utc):
+                    # If delivery time is in the past, schedule for immediate delivery
+                    scheduler.add_job(
+                        deliver_capsule,
+                        'date',
+                        run_date=datetime.now(timezone.utc),
+                        args=[application.bot, cap_dict['id']],
+                        id=f"capsule_{cap_dict['id']}",
+                        replace_existing=True
+                    )
+                else:
+                    # Otherwise, schedule it for the future
+                    scheduler.add_job(
+                        deliver_capsule,
+                        trigger=DateTrigger(run_date=delivery_time),
+                        args=[application.bot, cap_dict['id']],
+                        id=f"capsule_{cap_dict['id']}",
+                        replace_existing=True
+                    )
 
             logger.info(f"Scheduled {len(pending_capsules)} pending capsules")
 
     except Exception as e:
         logger.error(f"Error initializing scheduler: {e}")
 
-    scheduler.start()
+    # Add a job to check for due capsules every minute
+    scheduler.add_job(
+        check_due_capsules,
+        'interval',
+        minutes=1,
+        args=[application.bot]
+    )
+
     return scheduler

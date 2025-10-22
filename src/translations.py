@@ -67,7 +67,7 @@ TRANSLATIONS = {
         'delivery_text': 'Вы получили капсулу времени!\n\nСоздана: {created}\nОт: {sender}',
         'error_occurred': '❌ Произошла ошибка. Попробуйте позже.',
         'file_too_large': '❌ Файл слишком большой!\n\nМаксимальный размер:\n• Бесплатно: 10 МБ на все капсулы\n• Премиум: 1 ГБ на все капсулы',
-    },
+        'start_welcome_full':'🚀🕰 Добро пожаловать в Digital Time Capsule!\n\nВаш личный сервис для отправки сообщений в будущее. Безопасно. Зашифровано. Надежно.\n\n🔧 Технологии:\n• 🔐 Шифрование Fernet — военный уровень защиты\n• ☁️ Облачное хранилище Yandex S3 — ваши данные в безопасности\n• ⏰ Автоматическая доставка — точность до минуты\n• 🌍 Двуязычный интерфейс — русский и английский\n📊 Тарифы:\n• FREE: 3 капсулы, 10 МБ, до 1 года\n• PREMIUM: безлимит капсул, 1 ГБ, до 25 лет\n\n💎 Премиум от 20 звезд Telegram — цифровые платежи прямо в боте!\n\n⚡ Создайте первую капсулу за 30 секунд!'   },
     'en': {
         'select_language': '🌐 Выберите язык / Select language:',
         'language_russian': '🇷🇺 Русский',
@@ -134,7 +134,8 @@ TRANSLATIONS = {
         'delivery_text': 'You received a time capsule!\n\nCreated: {created}\nFrom: {sender}',
         'error_occurred': '❌ An error occurred. Try again later.',
         'file_too_large': '❌ File is too large!\n\nMax size:\n• Free: 10 MB for all capsules\n• Premium: 1 GB for all capsules',
-    }
+        'start_welcome_full':'🚀🕰 Welcome to Digital Time Capsule!\n\nYour personal service for sending messages to the future. Secure. Encrypted. Reliable.\n\n🔧 Technology:\n• 🔐 Fernet encryption — military-grade security\n• ☁️ Yandex S3 cloud storage — your data is safe\n• ⏰ Automatic delivery — accurate to the minute\n• 🌍 Bilingual interface — Russian and English\n\n📊 Plans:\n• FREE: 3 capsules, 10 MB, up to 1 year\n• PREMIUM: unlimited capsules, 1 GB, up to 25 years\n\n💎 Premium from 20 Telegram Stars — digital payments right in the bot!\n\n⚡ Create your first capsule in 30 seconds!'   
+        }
 }
 
 def t(lang: str, key: str, **kwargs) -> str:
