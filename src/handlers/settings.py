@@ -31,8 +31,8 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     # Send message based on context
     if query and query.message:
-        await query.edit_message_text(
-            t(lang, "settings"),
+        await query.edit_message_caption(
+            caption=t(lang, "settings"),
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
     else:

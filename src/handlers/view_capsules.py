@@ -32,8 +32,8 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                 
                 # Send message based on context
                 if query and query.message:
-                    await query.edit_message_text(
-                        t(lang, "no_capsules"),
+                    await query.edit_message_caption(
+                        caption=t(lang, "no_capsules"),
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
                 else:
@@ -91,8 +91,8 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             
             # Send message based on context
             if query and query.message:
-                await query.edit_message_text(
-                    capsules_text,
+                await query.edit_message_caption(
+                    caption=capsules_text,
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
             else:
@@ -111,8 +111,8 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         
         # Send error message based on context
         if query and query.message:
-            await query.edit_message_text(
-                t(lang, "error_occurred"),
+            await query.edit_message_caption(
+                caption=t(lang, "error_occurred"),
                 reply_markup=InlineKeyboardMarkup(keyboard)
             )
         else:

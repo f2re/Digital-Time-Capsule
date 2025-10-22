@@ -76,7 +76,7 @@ async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Send message based on context
     if query and query.message:
         # Called from button click
-        await query.edit_message_text(
+        await query.edit_message_caption(
             info_text,
             reply_markup=InlineKeyboardMarkup(keyboard)
         )

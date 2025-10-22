@@ -30,8 +30,8 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
             InlineKeyboardButton(t(lang, 'upgrade_subscription'), callback_data='subscription'),
             InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
         ]]
-        await query.edit_message_text(
-            t(lang, 'quota_exceeded', message=error_msg),
+        await query.edit_message_caption(
+            caption=t(lang, 'quota_exceeded', message=error_msg),
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return SELECTING_ACTION
@@ -49,8 +49,8 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')]
     ]
 
-    await query.edit_message_text(
-        t(lang, 'select_content_type'),
+    await query.edit_message_caption(
+        caption=t(lang, 'select_content_type'),
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
 
@@ -76,8 +76,8 @@ async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE
         'voice': t(lang, 'content_voice')
     }
 
-    await query.edit_message_text(
-        t(lang, 'send_content', type=type_names.get(content_type, content_type))
+    await query.edit_message_caption(
+        caption=t(lang, 'send_content', type=type_names.get(content_type, content_type))
     )
 
     return RECEIVING_CONTENT

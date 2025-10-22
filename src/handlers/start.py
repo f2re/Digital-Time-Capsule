@@ -62,13 +62,13 @@ async def select_language(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Update user language
     if update_user_language(user.id, selected_lang):
         # Show welcome message in selected language
-        await query.edit_message_text(
-            t(selected_lang, 'start_welcome'),
+        await query.edit_message_caption(
+            caption=t(selected_lang, 'start_welcome'),
             reply_markup=get_main_menu_keyboard(selected_lang)
         )
         
         logger.info(f"User {user.id} selected language: {selected_lang}")
         return SELECTING_ACTION
     else:
-        await query.edit_message_text("Error setting language. Please try /start again.")
+        await query.edit_message_caption(caption="Error setting language. Please try /start again.")
         return ConversationHandler.END

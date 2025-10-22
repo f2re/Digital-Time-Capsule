@@ -12,7 +12,7 @@ from telegram.ext import (
 from src.config import (
     BOT_TOKEN, SELECTING_LANG, SELECTING_ACTION, SELECTING_CONTENT_TYPE,
     RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
-    CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, logger
+    CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS, logger
 )
 from src.database import init_db
 from src.scheduler import init_scheduler
@@ -28,7 +28,7 @@ from src.handlers.subscription import (
     successful_payment_callback, paysupport_command
 )
 from src.handlers.view_capsules import show_capsules
-from src.handlers.settings import show_settings
+from src.handlers.settings import show_settings, language_callback_handler
 from src.handlers.help import help_command
 from src.handlers.delete_capsule import delete_capsule_handler
 
@@ -85,12 +85,17 @@ async def main():
                 CallbackQueryHandler(delete_capsule_handler, pattern="^delete_"),
                 CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
             ],
+            MANAGING_SETTINGS: [
+                CallbackQueryHandler(language_callback_handler, pattern="^set_lang_"),
+                CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
+            ],
         },
         fallbacks=[
             CommandHandler('start', start),
             CallbackQueryHandler(main_menu_handler, pattern='^main_menu$')
         ],
-        allow_reentry=True
+        allow_reentry=True,
+        name="main_conversation"
     )
     
     application.add_handler(conv_handler)
@@ -116,9 +121,20 @@ async def main():
         scheduler.start()
         await application.start()
         await application.updater.start_polling()
-        # Keep the bot running
-        while True:
-            await asyncio.sleep(3600)
+        # Keep the bot running until it's stopped
+        try:
+            while True:
+                await asyncio.sleep(3600)
+        except (KeyboardInterrupt, SystemExit):
+            logger.info("Bot stopped by user.")
+        finally:
+            await application.updater.stop()
+            await application.stop()
+            scheduler.shutdown()
+            logger.info("Bot shutdown gracefully.")
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except (KeyboardInterrupt, SystemExit):
+        logger.info("Application terminated.")

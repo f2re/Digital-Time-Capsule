@@ -42,18 +42,32 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif action == 'settings':
         return await show_settings(update, context)
     elif action == 'help':
-        await query.edit_message_text(
-            t(lang, 'help_text'),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
-            ]])
-        )
+        try:
+            await query.edit_message_caption(
+                caption=t(lang, 'help_text'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
+                ]])
+            )
+        except Exception:
+            await query.edit_message_text(
+                text=t(lang, 'help_text'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
+                ]])
+            )
         return SELECTING_ACTION
     elif action == 'main_menu':
-        await query.edit_message_text(
-            t(lang, 'main_menu'),
-            reply_markup=get_main_menu_keyboard(lang)
-        )
+        try:
+            await query.edit_message_caption(
+                caption=t(lang, 'main_menu'),
+                reply_markup=get_main_menu_keyboard(lang)
+            )
+        except Exception:
+            await query.edit_message_text(
+                text=t(lang, 'main_menu'),
+                reply_markup=get_main_menu_keyboard(lang)
+            )
         return SELECTING_ACTION
 
     return SELECTING_ACTION
