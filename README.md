@@ -280,6 +280,42 @@ docker-compose logs -f bot
 docker-compose down
 ```
 
+### GitHub Actions Automated Deployment
+
+This project includes automated deployment via GitHub Actions. When you push a tag to the `main` branch (e.g., `v1.0.0`), it will automatically:
+
+1. Build and push a Docker image to GitHub Container Registry (GHCR)
+2. Deploy the updated image to your production server via SSH
+
+#### Setup Instructions
+
+1. **Create a GitHub Environment:**
+   - Go to your repository Settings → Environments
+   - Create a new environment named `production`
+
+2. **Configure Required Secrets:**
+   - Go to repository Settings → Secrets and Variables → Actions
+   - Add the following secrets:
+   
+   | Secret Name | Description |
+   |-------------|-------------|
+   | `SSH_PRIVATE_KEY` | Private SSH key to access your production server |
+   | `DEPLOY_USER` | SSH username for your production server |
+   | `DEPLOY_HOST` | Hostname/IP address of your production server |
+
+3. **Server Requirements:**
+   - Docker and Docker Compose installed
+   - The repository code must be accessible on the server
+   - The server should be configured to accept SSH connections
+
+4. **Deploying:**
+   - Simply push a tag to the `main` branch:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+   - The GitHub Action will automatically trigger and deploy your changes
+
 ### Production Deployment
 
 **Using systemd** (Linux):

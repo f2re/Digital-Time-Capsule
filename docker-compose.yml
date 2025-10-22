@@ -42,7 +42,7 @@ services:
         echo 'Waiting for database...' &&
         sleep 5 &&
         python init_db_postgresql.py &&
-        python bot.py
+        python main.py
       "
 
 volumes:
