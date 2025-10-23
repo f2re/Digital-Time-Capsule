@@ -44,14 +44,19 @@ from sqlalchemy import select
 
 import asyncio
 
-async def error_handler(update, context):
-    logger.exception("Unhandled error", exc_info=context.error)
+async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle errors gracefully"""
+    logger.error("Exception while handling an update:", exc_info=context.error)
+    
+    # Try to send error message to user
     try:
-        msg = update.effective_message if update else None
-        if msg:
-            await msg.reply_text("❌ Произошла ошибка. Попробуйте ещё раз.")
+        if update and hasattr(update, 'effective_message') and update.effective_message:
+            await update.effective_message.reply_text(
+                "❌ Произошла ошибка. Попробуйте ещё раз или используйте /start"
+            )
     except Exception:
-        pass
+        pass  # If we can't even send an error message, just log it
+
 
 async def main():
     """Start the bot"""

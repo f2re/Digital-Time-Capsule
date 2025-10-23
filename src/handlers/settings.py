@@ -13,6 +13,10 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     user = update.effective_user
     userdata = get_user_data(user.id)
+    
+    if not userdata:
+        return SELECTING_ACTION
+        
     lang = userdata['language_code']
     
     keyboard = [
@@ -29,19 +33,35 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         [InlineKeyboardButton(t(lang, "back"), callback_data="main_menu")]
     ]
     
-    # Send message based on context
-    if query and query.message:
-        await query.edit_message_caption(
-            caption=t(lang, "settings"),
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-    else:
-        message = update.message or update.effective_message
-        if message:
-            await message.reply_text(
-                t(lang, "settings"),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+    try:
+        if query and query.message:
+            # Try to edit as text first, then as caption
+            try:
+                await query.edit_message_text(
+                    text=t(lang, "settings"),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except:
+                try:
+                    await query.edit_message_caption(
+                        caption=t(lang, "settings"),
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                except:
+                    # Last resort - send new message
+                    await query.message.reply_text(
+                        t(lang, "settings"),
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+        else:
+            message = update.message or update.effective_message
+            if message:
+                await message.reply_text(
+                    t(lang, "settings"),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+    except Exception as e:
+        logger.error(f"Error in show_settings: {e}")
     
     return MANAGING_SETTINGS
 
@@ -57,4 +77,3 @@ async def language_callback_handler(update: Update, context: ContextTypes.DEFAUL
     
     # Refresh settings menu
     return await show_settings(update, context)
-

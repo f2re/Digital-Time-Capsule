@@ -6,6 +6,26 @@ from ..database import get_user_data, capsules, engine
 from ..translations import t
 from ..config import SELECTING_ACTION, VIEWING_CAPSULES, PREMIUM_CAPSULE_LIMIT, FREE_CAPSULE_LIMIT, logger
 
+async def safe_edit_message(query, text, keyboard):
+    """Safely edit message, trying different methods"""
+    try:
+        await query.edit_message_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except:
+        try:
+            await query.edit_message_caption(
+                caption=text,
+                reply_markup=keyboard
+            )
+        except:
+            # Last resort - send new message
+            await query.message.reply_text(
+                text,
+                reply_markup=keyboard
+            )
+
 async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show user's capsules"""
     query = update.callback_query
@@ -14,6 +34,10 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     
     user = update.effective_user
     userdata = get_user_data(user.id)
+    
+    if not userdata:
+        return SELECTING_ACTION
+        
     lang = userdata['language_code']
     
     try:
@@ -27,79 +51,63 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                 .order_by(capsules.c.delivery_time)
             ).fetchall()
             
+            keyboard = [[InlineKeyboardButton(t(lang, "main_menu"), callback_data="main_menu")]]
+            
             if not capsule_rows:
-                keyboard = [[InlineKeyboardButton(t(lang, "main_menu"), callback_data="main_menu")]]
+                text = t(lang, "no_capsules")
+            else:
+                is_premium = userdata['subscription_status'] == 'premium'
+                limit = PREMIUM_CAPSULE_LIMIT if is_premium else FREE_CAPSULE_LIMIT
                 
-                # Send message based on context
-                if query and query.message:
-                    await query.edit_message_caption(
-                        caption=t(lang, "no_capsules"),
-                        reply_markup=InlineKeyboardMarkup(keyboard)
-                    )
-                else:
-                    message = update.message or update.effective_message
-                    if message:
-                        await message.reply_text(
-                            t(lang, "no_capsules"),
-                            reply_markup=InlineKeyboardMarkup(keyboard)
+                text = t(lang, "capsule_list", count=len(capsule_rows), limit=limit)
+                
+                content_emoji = {
+                    "text": "📝",
+                    "photo": "📷", 
+                    "video": "🎥",
+                    "document": "📎",
+                    "voice": "🎙️"
+                }
+                
+                capsule_keyboard = []
+                for cap in capsule_rows[:10]:  # Show max 10
+                    cap_dict = dict(cap._mapping)
+                    emoji = content_emoji.get(cap_dict['content_type'], "📦")
+                    
+                    recipient = cap_dict['recipient_type']
+                    if cap_dict['recipient_type'] == "self":
+                        recipient = t(lang, "recipient_self")
+                    
+                    item_text = t(lang, "capsule_item",
+                                emoji=emoji,
+                                type=cap_dict['content_type'],
+                                recipient=recipient,
+                                time=cap_dict['delivery_time'].strftime("%d.%m.%Y %H:%M"),
+                                created=cap_dict['created_at'].strftime("%d.%m.%Y"))
+                    
+                    text += f"\n{item_text}"
+                    
+                    capsule_keyboard.append([
+                        InlineKeyboardButton(
+                            f"{emoji} {cap_dict['delivery_time'].strftime('%d.%m %H:%M')}",
+                            callback_data=f"view_{cap_dict['id']}"
+                        ),
+                        InlineKeyboardButton(
+                            t(lang, "delete_capsule"),
+                            callback_data=f"delete_{cap_dict['id']}"
                         )
-                return SELECTING_ACTION
-            
-            is_premium = userdata['subscription_status'] == 'premium'
-            limit = PREMIUM_CAPSULE_LIMIT if is_premium else FREE_CAPSULE_LIMIT
-            
-            capsules_text = t(lang, "capsule_list", count=len(capsule_rows), limit=limit)
-            
-            content_emoji = {
-                "text": "📝",
-                "photo": "📷",
-                "video": "🎥",
-                "document": "📎",
-                "voice": "🎙️"
-            }
-            
-            keyboard = []
-            for cap in capsule_rows[:10]:  # Show max 10
-                cap_dict = dict(cap._mapping)
-                emoji = content_emoji.get(cap_dict['content_type'], "📦")
+                    ])
                 
-                recipient = cap_dict['recipient_type']
-                if cap_dict['recipient_type'] == "self":
-                    recipient = t(lang, "recipient_self")
-                
-                item_text = t(lang, "capsule_item",
-                            emoji=emoji,
-                            type=cap_dict['content_type'],
-                            recipient=recipient,
-                            time=cap_dict['delivery_time'].strftime("%d.%m.%Y %H:%M"),
-                            created=cap_dict['created_at'].strftime("%d.%m.%Y"))
-                
-                capsules_text += f"\n{item_text}"
-                
-                keyboard.append([
-                    InlineKeyboardButton(
-                        f"{emoji} {cap_dict['delivery_time'].strftime('%d.%m %H:%M')}",
-                        callback_data=f"view_{cap_dict['id']}"
-                    ),
-                    InlineKeyboardButton(
-                        t(lang, "delete_capsule"),
-                        callback_data=f"delete_{cap_dict['id']}"
-                    )
-                ])
-            
-            keyboard.append([InlineKeyboardButton(t(lang, "main_menu"), callback_data="main_menu")])
+                keyboard = capsule_keyboard + keyboard
             
             # Send message based on context
             if query and query.message:
-                await query.edit_message_caption(
-                    caption=capsules_text,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
-                )
+                await safe_edit_message(query, text, InlineKeyboardMarkup(keyboard))
             else:
                 message = update.message or update.effective_message
                 if message:
                     await message.reply_text(
-                        capsules_text,
+                        text,
                         reply_markup=InlineKeyboardMarkup(keyboard)
                     )
             
@@ -111,10 +119,7 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         
         # Send error message based on context
         if query and query.message:
-            await query.edit_message_caption(
-                caption=t(lang, "error_occurred"),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+            await safe_edit_message(query, t(lang, "error_occurred"), InlineKeyboardMarkup(keyboard))
         else:
             message = update.message or update.effective_message
             if message:

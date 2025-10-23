@@ -37,11 +37,17 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
             InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
         ]]
         
-        if query:
-            await query.edit_message_text(
-                t(lang, 'quota_exceeded', message=error_msg),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+        if query and query.message:
+            try:
+                await query.edit_message_text(
+                    t(lang, 'quota_exceeded', message=error_msg),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except:
+                await query.message.reply_text(
+                    t(lang, 'quota_exceeded', message=error_msg),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
         else:
             message = update.message or update.effective_message
             if message:
@@ -65,11 +71,17 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
     ]
 
     try:
-        if query:
-            await query.edit_message_text(
-                t(lang, 'select_content_type'),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
+        if query and query.message:
+            try:
+                await query.edit_message_text(
+                    t(lang, 'select_content_type'),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except:
+                await query.message.reply_text(
+                    t(lang, 'select_content_type'),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
         else:
             message = update.message or update.effective_message
             if message:
@@ -81,6 +93,7 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"Error in start_create_capsule: {e}")
 
     return SELECTING_CONTENT_TYPE
+
 
 
 async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

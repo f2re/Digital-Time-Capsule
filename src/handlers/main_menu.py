@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from ..database import get_user_data
 from ..translations import t
-from ..config import SELECTING_ACTION
+from ..config import SELECTING_ACTION, logger
 from .create_capsule import start_create_capsule
 from .view_capsules import show_capsules
 from .subscription import show_subscription
@@ -22,16 +22,40 @@ def get_main_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
+async def safe_edit_message(query, text, keyboard):
+    """Safely edit message, trying different methods"""
+    try:
+        await query.edit_message_text(
+            text=text,
+            reply_markup=keyboard
+        )
+    except:
+        try:
+            await query.edit_message_caption(
+                caption=text,
+                reply_markup=keyboard
+            )
+        except:
+            # Last resort - send new message
+            await query.message.reply_text(
+                text,
+                reply_markup=keyboard
+            )
+
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle main menu button clicks"""
     query = update.callback_query
-    await query.answer()
+    if query:
+        await query.answer()
 
     user = update.effective_user
     user_data = get_user_data(user.id)
+    
+    if not user_data:
+        return SELECTING_ACTION
+        
     lang = user_data['language_code']
-
-    action = query.data
+    action = query.data if query else None
 
     if action == 'create':
         return await start_create_capsule(update, context)
@@ -42,31 +66,21 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif action == 'settings':
         return await show_settings(update, context)
     elif action == 'help':
-        try:
-            await query.edit_message_caption(
-                caption=t(lang, 'help_text'),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
-                ]])
-            )
-        except Exception:
-            await query.edit_message_text(
-                text=t(lang, 'help_text'),
-                reply_markup=InlineKeyboardMarkup([[
+        if query:
+            await safe_edit_message(
+                query, 
+                t(lang, 'help_text'),
+                InlineKeyboardMarkup([[
                     InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
                 ]])
             )
         return SELECTING_ACTION
     elif action == 'main_menu':
-        try:
-            await query.edit_message_caption(
-                caption=t(lang, 'main_menu'),
-                reply_markup=get_main_menu_keyboard(lang)
-            )
-        except Exception:
-            await query.edit_message_text(
-                text=t(lang, 'main_menu'),
-                reply_markup=get_main_menu_keyboard(lang)
+        if query:
+            await safe_edit_message(
+                query,
+                t(lang, 'main_menu'),
+                get_main_menu_keyboard(lang)
             )
         return SELECTING_ACTION
 

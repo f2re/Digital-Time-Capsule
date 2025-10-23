@@ -75,11 +75,23 @@ async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     # Send message based on context
     if query and query.message:
-        # Called from button click
-        await query.edit_message_caption(
-            info_text,
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        # Called from button click - try text edit first
+        try:
+            await query.edit_message_text(
+                info_text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except:
+            try:
+                await query.edit_message_caption(
+                    caption=info_text,
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            except:
+                await query.message.reply_text(
+                    info_text,
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
     else:
         # Called from command
         message = update.message or update.effective_message
