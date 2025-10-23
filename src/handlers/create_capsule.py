@@ -280,57 +280,181 @@ async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE)
         await update.message.reply_text(t(lang, 'invalid_date'))
         return SELECTING_DATE
 
+
+async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle recipient selection"""
+    query = update.callback_query
+    message = update.message
+    
+    # Если это callback query (кнопка)
+    if query:
+        await query.answer()
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        lang = user_data['language_code']
+
+        recipient_type = query.data.replace('recipient_', '')
+
+        if recipient_type == 'self':
+            context.user_data['capsule']['recipient_type'] = 'self'
+            context.user_data['capsule']['recipient_id'] = user.id
+            return await show_confirmation(update, context)
+        elif recipient_type == 'user':
+            context.user_data['capsule']['recipient_type'] = 'user'
+            context.user_data['waiting_for_recipient'] = True
+            await query.edit_message_text(
+                t(lang, 'enter_user_id_instruction'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+                ]])
+            )
+            return SELECTING_RECIPIENT
+        elif recipient_type == 'group':
+            context.user_data['capsule']['recipient_type'] = 'group'
+            context.user_data['waiting_for_recipient'] = True
+            await query.edit_message_text(
+                t(lang, 'enter_group_id_instruction'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+                ]])
+            )
+            return SELECTING_RECIPIENT
+
+    # Если это текстовое сообщение с ID получателя
+    elif message and message.text and context.user_data.get('waiting_for_recipient'):
+        user = update.effective_user
+        user_data = get_user_data(user.id)
+        lang = user_data['language_code']
+
+        try:
+            # Парсим ID получателя
+            recipient_input = message.text.strip()
+            
+            # Убираем @ если есть
+            if recipient_input.startswith('@'):
+                recipient_input = recipient_input[1:]
+            
+            # Для групп ID может начинаться с -
+            if context.user_data['capsule']['recipient_type'] == 'group':
+                if not recipient_input.startswith('-') and recipient_input.isdigit():
+                    recipient_input = '-' + recipient_input
+                recipient_id = recipient_input
+            else:
+                # Для пользователей может быть username или ID
+                if recipient_input.isdigit():
+                    recipient_id = int(recipient_input)
+                else:
+                    # Это username, попробуем найти пользователя
+                    recipient_id = '@' + recipient_input
+
+            context.user_data['capsule']['recipient_id'] = recipient_id
+            context.user_data.pop('waiting_for_recipient', None)
+            
+            return await show_confirmation(update, context)
+
+        except Exception as e:
+            logger.error(f"Error parsing recipient ID: {e}")
+            await message.reply_text(
+                t(lang, 'invalid_recipient_id'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'back'), callback_data='recipient_' + context.user_data['capsule']['recipient_type']),
+                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+                ]])
+            )
+            return SELECTING_RECIPIENT
+
+    return SELECTING_RECIPIENT
+
 async def show_recipient_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Show recipient selection menu"""
+    """Show recipient selection menu with user list option"""
     user = update.effective_user
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
 
+    # Добавляем кнопку для выбора пользователей из списка
     keyboard = [
         [InlineKeyboardButton(t(lang, 'recipient_self'), callback_data='recipient_self')],
         [InlineKeyboardButton(t(lang, 'recipient_user'), callback_data='recipient_user')],
+        [InlineKeyboardButton(t(lang, 'recipient_user_list'), callback_data='recipient_user_list')],
         [InlineKeyboardButton(t(lang, 'recipient_group'), callback_data='recipient_group')],
         [InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')]
     ]
 
     if update.callback_query:
         await update.callback_query.edit_message_text(
-            t(lang, 'select_recipient'),
+            t(lang, 'select_recipient_enhanced'),
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
     else:
         await update.message.reply_text(
-            t(lang, 'select_recipient'),
+            t(lang, 'select_recipient_enhanced'),
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     return SELECTING_RECIPIENT
 
-async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle recipient selection"""
-    query = update.callback_query
-    await query.answer()
-
+# Новая функция для показа списка пользователей
+async def show_user_list(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Show list of users who have interacted with the bot"""
     user = update.effective_user
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
+    
+    try:
+        with engine.connect() as conn:
+            # Получаем список пользователей (кроме текущего)
+            users_result = conn.execute(
+                select(users.c.telegram_id, users.c.first_name, users.c.username)
+                .where(users.c.telegram_id != user.id)
+                .limit(20)  # Ограничиваем количество
+            ).fetchall()
 
-    recipient_type = query.data.replace('recipient_', '')
+            if not users_result:
+                keyboard = [[
+                    InlineKeyboardButton(t(lang, 'back'), callback_data='create'),
+                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+                ]]
+                await update.callback_query.edit_message_text(
+                    t(lang, 'no_users_found'),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+                return SELECTING_RECIPIENT
 
-    if recipient_type == 'self':
-        context.user_data['capsule']['recipient_type'] = 'self'
-        context.user_data['capsule']['recipient_id'] = user.id
-        return await show_confirmation(update, context)
-    elif recipient_type == 'user':
-        context.user_data['capsule']['recipient_type'] = 'user'
-        await query.edit_message_text(t(lang, 'enter_user_id'))
+            # Создаем кнопки для каждого пользователя
+            keyboard = []
+            for user_row in users_result:
+                user_dict = dict(user_row._mapping)
+                display_name = user_dict['first_name'] or user_dict['username'] or f"User {user_dict['telegram_id']}"
+                keyboard.append([InlineKeyboardButton(
+                    display_name,
+                    callback_data=f'select_user_{user_dict["telegram_id"]}'
+                )])
+            
+            # Добавляем кнопки навигации
+            keyboard.append([
+                InlineKeyboardButton(t(lang, 'back'), callback_data='create'),
+                InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+            ])
+
+            await update.callback_query.edit_message_text(
+                t(lang, 'select_user_from_list'),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+
+            return SELECTING_RECIPIENT
+
+    except Exception as e:
+        logger.error(f"Error showing user list: {e}")
+        keyboard = [[
+            InlineKeyboardButton(t(lang, 'back'), callback_data='create'),
+            InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+        ]]
+        await update.callback_query.edit_message_text(
+            t(lang, 'error_occurred'),
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
         return SELECTING_RECIPIENT
-    elif recipient_type == 'group':
-        context.user_data['capsule']['recipient_type'] = 'group'
-        await query.edit_message_text(t(lang, 'enter_group_id'))
-        return SELECTING_RECIPIENT
 
-    return SELECTING_RECIPIENT
 
 async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show capsule confirmation"""

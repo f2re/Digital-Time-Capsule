@@ -28,64 +28,115 @@ async def deliver_capsule(bot, capsule_id: int):
             capsule_data = dict(capsule_row._mapping)
             sender_name = capsule_data['first_name'] or capsule_data['username'] or 'Anonymous'
 
-            # Get recipient
+            # Определяем получателя и язык
             recipient_id = capsule_data['recipient_id']
-            lang = capsule_data['language_code']
+            recipient_type = capsule_data['recipient_type']
+            
+            # Для групп и внешних пользователей используем язык отправителя
+            # Для себя - свой язык
+            if recipient_type == 'self':
+                lang = capsule_data['language_code']
+            else:
+                # Пытаемся найти язык получателя в базе
+                if isinstance(recipient_id, int):
+                    recipient_data = conn.execute(
+                        select(users.c.language_code)
+                        .where(users.c.telegram_id == recipient_id)
+                    ).first()
+                    lang = recipient_data['language_code'] if recipient_data else capsule_data['language_code']
+                else:
+                    # Для групп или username используем язык отправителя
+                    lang = capsule_data['language_code']
 
             # Prepare message
             delivery_text = t(lang, 'delivery_text',
                             created=capsule_data['created_at'].strftime('%d.%m.%Y %H:%M'),
                             sender=sender_name)
 
-            # Send content based on type
-            if capsule_data['content_type'] == 'text':
-                await bot.send_message(
-                    chat_id=recipient_id,
-                    text=f"{t(lang, 'delivery_title')}\n\n{delivery_text}\n\n{capsule_data['content_text']}"
-                )
-            else:
-                # Download and decrypt file
-                file_bytes = download_and_decrypt_file(
-                    capsule_data['s3_key'],
-                    capsule_data['file_key']
-                )
+            try:
+                # Определяем chat_id для отправки
+                chat_id = recipient_id
+                
+                # Если это строка (username или группа), используем как есть
+                if isinstance(recipient_id, str):
+                    if recipient_id.startswith('@'):
+                        chat_id = recipient_id
+                    elif recipient_id.startswith('-'):
+                        # Это ID группы
+                        try:
+                            chat_id = int(recipient_id)
+                        except:
+                            chat_id = recipient_id
+                    else:
+                        # Это username без @
+                        chat_id = '@' + recipient_id
 
-                if file_bytes:
-                    file_obj = BytesIO(file_bytes)
+                # Send content based on type
+                if capsule_data['content_type'] == 'text':
+                    await bot.send_message(
+                        chat_id=chat_id,
+                        text=f"{t(lang, 'delivery_title')}\n\n{delivery_text}\n\n{capsule_data['content_text']}"
+                    )
+                else:
+                    # Download and decrypt file
+                    file_bytes = download_and_decrypt_file(
+                        capsule_data['s3_key'],
+                        capsule_data['file_key']
+                    )
 
-                    if capsule_data['content_type'] == 'photo':
-                        await bot.send_photo(
-                            chat_id=recipient_id,
-                            photo=file_obj,
-                            caption=delivery_text
-                        )
-                    elif capsule_data['content_type'] == 'video':
-                        await bot.send_video(
-                            chat_id=recipient_id,
-                            video=file_obj,
-                            caption=delivery_text
-                        )
-                    elif capsule_data['content_type'] == 'document':
-                        await bot.send_document(
-                            chat_id=recipient_id,
-                            document=file_obj,
-                            caption=delivery_text
-                        )
-                    elif capsule_data['content_type'] == 'voice':
-                        await bot.send_voice(
-                            chat_id=recipient_id,
-                            voice=file_obj,
-                            caption=delivery_text
-                        )
+                    if file_bytes:
+                        file_obj = BytesIO(file_bytes)
 
-            # Delete from S3 if applicable
-            if capsule_data['s3_key']:
-                delete_file_from_s3(capsule_data['s3_key'])
+                        if capsule_data['content_type'] == 'photo':
+                            await bot.send_photo(
+                                chat_id=chat_id,
+                                photo=file_obj,
+                                caption=delivery_text
+                            )
+                        elif capsule_data['content_type'] == 'video':
+                            await bot.send_video(
+                                chat_id=chat_id,
+                                video=file_obj,
+                                caption=delivery_text
+                            )
+                        elif capsule_data['content_type'] == 'document':
+                            await bot.send_document(
+                                chat_id=chat_id,
+                                document=file_obj,
+                                caption=delivery_text
+                            )
+                        elif capsule_data['content_type'] == 'voice':
+                            await bot.send_voice(
+                                chat_id=chat_id,
+                                voice=file_obj,
+                                caption=delivery_text
+                            )
+                    else:
+                        logger.error(f"Could not download file for capsule {capsule_id}")
+                        return
 
-            # Delete from database
-            delete_capsule(capsule_id)
+                # Delete from S3 if applicable
+                if capsule_data['s3_key']:
+                    delete_file_from_s3(capsule_data['s3_key'])
 
-            logger.info(f"Capsule {capsule_id} delivered and deleted successfully")
+                # Delete from database
+                delete_capsule(capsule_id)
+
+                logger.info(f"Capsule {capsule_id} delivered successfully to {chat_id}")
+
+            except Exception as delivery_error:
+                logger.error(f"Error delivering capsule {capsule_id} to {chat_id}: {delivery_error}")
+                
+                # Если не удалось доставить, попробуем отправить уведомление создателю
+                try:
+                    await bot.send_message(
+                        chat_id=capsule_data['telegram_id'],  # ID создателя капсулы
+                        text=t(lang, 'delivery_failed', 
+                              recipient=recipient_id,
+                              error=str(delivery_error))
+                    )
+                except:
+                    logger.error(f"Could not notify creator about delivery failure for capsule {capsule_id}")
 
     except Exception as e:
         logger.error(f"Error delivering capsule {capsule_id}: {e}")
