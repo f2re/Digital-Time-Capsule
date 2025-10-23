@@ -4,10 +4,12 @@
 Digital Time Capsule - Telegram Bot
 """
 from telegram import Update
+from telegram.error import TelegramError
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     ConversationHandler, MessageHandler, filters,
-    PreCheckoutQueryHandler, ContextTypes, PicklePersistence
+    PreCheckoutQueryHandler, ContextTypes, PicklePersistence,
+    ApplicationHandlerStop
 )
 from src.config import (
     BOT_TOKEN, SELECTING_LANG, SELECTING_ACTION, SELECTING_CONTENT_TYPE,
@@ -36,11 +38,20 @@ from src.handlers.persistent_menu import (
     show_persistent_menu, persistent_menu_handler, 
     persistent_main_menu_handler, handle_show_menu_callback
 )
-
+from src.translations import t
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from sqlalchemy import select
 
 import asyncio
+
+async def error_handler(update, context):
+    logger.exception("Unhandled error", exc_info=context.error)
+    try:
+        msg = update.effective_message if update else None
+        if msg:
+            await msg.reply_text("❌ Произошла ошибка. Попробуйте ещё раз.")
+    except Exception:
+        pass
 
 async def main():
     """Start the bot"""
@@ -56,7 +67,8 @@ async def main():
     # Обработчики кнопок, которые работают всегда (вне conversation)
     application.add_handler(CallbackQueryHandler(persistent_menu_handler, pattern='^menu_'))
     application.add_handler(CallbackQueryHandler(persistent_main_menu_handler, pattern='^main_menu$'))
-    
+    application.add_handler(CallbackQueryHandler(handle_show_menu_callback, pattern='^show_menu$'))
+
     # Conversation handler
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler('start', start)],
@@ -137,8 +149,10 @@ async def main():
     application.add_handler(CommandHandler('help', help_command))
     application.add_handler(CommandHandler('paysupport', paysupport_command))
     application.add_handler(CommandHandler('menu', show_persistent_menu))
-    
+
     logger.info("Bot started!")
+
+    application.add_error_handler(error_handler)
     
     async with application:
         await application.initialize()
@@ -155,133 +169,6 @@ async def main():
             await application.stop()
             scheduler.shutdown()
             logger.info("Bot shutdown gracefully.")
-
-# Добавляем новые функции для постоянного меню
-async def show_persistent_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show persistent menu that works outside conversation"""
-    user = update.effective_user
-    user_data = get_user_data(user.id)
-    lang = user_data['language_code']
-    
-    keyboard = [
-        [
-            InlineKeyboardButton(f"📝 {t(lang, 'create_capsule')}", callback_data='menu_create'),
-            InlineKeyboardButton(f"📦 {t(lang, 'my_capsules')}", callback_data='menu_capsules')
-        ],
-        [
-            InlineKeyboardButton(f"💎 {t(lang, 'subscription')}", callback_data='menu_subscription'),
-            InlineKeyboardButton(f"⚙️ {t(lang, 'settings')}", callback_data='menu_settings')
-        ],
-        [
-            InlineKeyboardButton(f"❓ {t(lang, 'help')}", callback_data='menu_help'),
-            InlineKeyboardButton(f"📊 {t(lang, 'stats')}", callback_data='menu_stats')
-        ]
-    ]
-    
-    if update.message:
-        await update.message.reply_text(
-            t(lang, 'persistent_menu_text'),
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
-    elif update.callback_query:
-        try:
-            await update.callback_query.edit_message_text(
-                t(lang, 'persistent_menu_text'),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-        except:
-            await update.callback_query.message.reply_text(
-                t(lang, 'persistent_menu_text'),
-                reply_markup=InlineKeyboardMarkup(keyboard)
-            )
-
-async def persistent_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle persistent menu button clicks"""
-    query = update.callback_query
-    await query.answer()
-    
-    user = update.effective_user
-    user_data = get_user_data(user.id)
-    lang = user_data['language_code']
-    
-    action = query.data.replace('menu_', '')
-    
-    if action == 'create':
-        # Начинаем conversation для создания капсулы
-        context.user_data['capsule'] = {}
-        await start_create_capsule(update, context)
-    elif action == 'capsules':
-        await show_capsules(update, context)
-    elif action == 'subscription':
-        await show_subscription(update, context)
-    elif action == 'settings':
-        await show_settings(update, context)
-    elif action == 'help':
-        await query.edit_message_text(
-            t(lang, 'help_text'),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(t(lang, 'back_to_menu'), callback_data='show_menu')
-            ]])
-        )
-    elif action == 'stats':
-        await show_user_stats(update, context)
-
-async def persistent_main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle main menu callback outside conversation"""
-    return await show_persistent_menu(update, context)
-
-async def show_user_stats(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show user statistics"""
-    query = update.callback_query
-    user = update.effective_user
-    user_data = get_user_data(user.id)
-    lang = user_data['language_code']
-    
-    try:
-        with engine.connect() as conn:
-            # Получаем статистику пользователя
-            stats = conn.execute(
-                select(users)
-                .where(users.c.telegram_id == user.id)
-            ).first()
-            
-            if stats:
-                stats_dict = dict(stats._mapping)
-                
-                # Считаем активные капсулы
-                active_capsules = conn.execute(
-                    select(capsules)
-                    .where(capsules.c.user_id == stats_dict['id'])
-                    .where(capsules.c.delivered == False)
-                ).rowcount
-                
-                # Форматируем размер хранилища
-                storage_mb = stats_dict['total_storage_used'] / (1024 * 1024)
-                max_storage_mb = (PREMIUM_STORAGE_LIMIT if stats_dict['subscription_status'] == 'premium' 
-                                else FREE_STORAGE_LIMIT) / (1024 * 1024)
-                
-                stats_text = t(lang, 'user_stats',
-                             capsules_total=stats_dict['capsule_count'],
-                             capsules_active=active_capsules,
-                             storage_used=f"{storage_mb:.1f}",
-                             storage_max=f"{max_storage_mb:.0f}",
-                             subscription=stats_dict['subscription_status'].upper())
-                
-                await query.edit_message_text(
-                    stats_text,
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(t(lang, 'back_to_menu'), callback_data='show_menu')
-                    ]])
-                )
-            
-    except Exception as e:
-        logger.error(f"Error showing stats: {e}")
-        await query.edit_message_text(
-            t(lang, 'error_occurred'),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(t(lang, 'back_to_menu'), callback_data='show_menu')
-            ]])
-        )
 
 if __name__ == '__main__':
     try:

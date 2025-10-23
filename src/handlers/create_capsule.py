@@ -18,9 +18,15 @@ from ..config import logger
 async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start capsule creation flow"""
     query = update.callback_query
-    await query.answer()
+    if query:
+        await query.answer()
+    
     user = update.effective_user
     user_data = get_user_data(user.id)
+    
+    if not user_data:
+        return SELECTING_ACTION
+        
     lang = user_data['language_code']
 
     # Check quota
@@ -30,10 +36,19 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
             InlineKeyboardButton(t(lang, 'upgrade_subscription'), callback_data='subscription'),
             InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
         ]]
-        await query.edit_message_caption(
-            caption=t(lang, 'quota_exceeded', message=error_msg),
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        
+        if query:
+            await query.edit_message_text(
+                t(lang, 'quota_exceeded', message=error_msg),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            message = update.message or update.effective_message
+            if message:
+                await message.reply_text(
+                    t(lang, 'quota_exceeded', message=error_msg),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
         return SELECTING_ACTION
 
     # Initialize capsule data in context
@@ -49,12 +64,24 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')]
     ]
 
-    await query.edit_message_caption(
-        caption=t(lang, 'select_content_type'),
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    try:
+        if query:
+            await query.edit_message_text(
+                t(lang, 'select_content_type'),
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        else:
+            message = update.message or update.effective_message
+            if message:
+                await message.reply_text(
+                    t(lang, 'select_content_type'),
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+    except Exception as e:
+        logger.error(f"Error in start_create_capsule: {e}")
 
     return SELECTING_CONTENT_TYPE
+
 
 async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle content type selection"""
@@ -76,8 +103,8 @@ async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE
         'voice': t(lang, 'content_voice')
     }
 
-    await query.edit_message_caption(
-        caption=t(lang, 'send_content', type=type_names.get(content_type, content_type))
+    await query.edit_message_text(
+        t(lang, 'send_content', type=type_names.get(content_type, content_type))
     )
 
     return RECEIVING_CONTENT

@@ -51,3 +51,4 @@ Thumbs.db
 # Data
 data/
 uploads/
+conversation_data.pickle
