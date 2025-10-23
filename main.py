@@ -7,14 +7,15 @@ from telegram import Update
 from telegram.ext import (
     Application, CommandHandler, CallbackQueryHandler,
     ConversationHandler, MessageHandler, filters,
-    PreCheckoutQueryHandler, ContextTypes
+    PreCheckoutQueryHandler, ContextTypes, PicklePersistence
 )
 from src.config import (
     BOT_TOKEN, SELECTING_LANG, SELECTING_ACTION, SELECTING_CONTENT_TYPE,
     RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
-    CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS, logger
+    CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS, 
+    PREMIUM_STORAGE_LIMIT, FREE_STORAGE_LIMIT, logger
 )
-from src.database import init_db
+from src.database import init_db,get_user_data, users, capsules, engine
 from src.scheduler import init_scheduler
 from src.handlers.start import start, select_language
 from src.handlers.main_menu import main_menu_handler
@@ -36,12 +37,18 @@ from src.handlers.persistent_menu import (
     persistent_main_menu_handler, handle_show_menu_callback
 )
 
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
+from sqlalchemy import select
+
 import asyncio
 
 async def main():
     """Start the bot"""
     init_db()
-    application = Application.builder().token(BOT_TOKEN).build()
+    persistence = PicklePersistence(filepath="conversation_data.pickle")
+    application = Application.builder().token(BOT_TOKEN).persistence(persistence).build()
+    
+    # application = Application.builder().token(BOT_TOKEN).build()
     
     scheduler = init_scheduler(application)
     application.bot_data['scheduler'] = scheduler
@@ -110,7 +117,8 @@ async def main():
         allow_reentry=True,
         name="main_conversation",
         persistent=True,  # Включаем персистентность
-        per_chat=True
+        per_chat=True,
+        per_message=False 
     )
     
     application.add_handler(conv_handler)

@@ -151,3 +151,282 @@ def delete_capsule(capsule_id: int):
             logger.info(f"Capsule {capsule_id} deleted from database")
     except Exception as e:
         logger.error(f"Error deleting capsule {capsule_id} from database: {e}")
+
+def get_user_stats(telegram_id: int) -> Optional[Dict]:
+    """Get comprehensive user statistics"""
+    try:
+        with engine.connect() as conn:
+            # Get user data
+            user_result = conn.execute(
+                select(users).where(users.c.telegram_id == telegram_id)
+            ).first()
+            
+            if not user_result:
+                return None
+                
+            user_dict = dict(user_result._mapping)
+            
+            # Count active (undelivered) capsules
+            active_capsules = conn.execute(
+                select(capsules.c.id)
+                .where(capsules.c.user_id == user_dict['id'])
+                .where(capsules.c.delivered == False)
+            ).rowcount
+            
+            # Count delivered capsules
+            delivered_capsules = conn.execute(
+                select(capsules.c.id)
+                .where(capsules.c.user_id == user_dict['id'])
+                .where(capsules.c.delivered == True)
+            ).rowcount
+            
+            # Calculate storage usage in MB
+            storage_mb = user_dict['total_storage_used'] / (1024 * 1024)
+            max_storage_mb = (PREMIUM_STORAGE_LIMIT if user_dict['subscription_status'] == 'premium' 
+                            else FREE_STORAGE_LIMIT) / (1024 * 1024)
+            
+            return {
+                'user_data': user_dict,
+                'capsules_total': user_dict['capsule_count'],
+                'capsules_active': active_capsules,
+                'capsules_delivered': delivered_capsules,
+                'storage_used_mb': round(storage_mb, 1),
+                'storage_max_mb': round(max_storage_mb, 0),
+                'subscription': user_dict['subscription_status']
+            }
+            
+    except Exception as e:
+        logger.error(f"Error getting user stats: {e}")
+        return None
+
+def update_user_storage(user_id: int, size_change: int) -> bool:
+    """Update user's total storage used (can be positive or negative)"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(total_storage_used=users.c.total_storage_used + size_change)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error updating user storage: {e}")
+        return False
+
+def increment_user_capsule_count(user_id: int) -> bool:
+    """Increment user's capsule count"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(capsule_count=users.c.capsule_count + 1)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error incrementing capsule count: {e}")
+        return False
+
+def decrement_user_capsule_count(user_id: int) -> bool:
+    """Decrement user's capsule count"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(capsule_count=users.c.capsule_count - 1)
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error decrementing capsule count: {e}")
+        return False
+
+def get_user_capsules(user_id: int, limit: int = 50, offset: int = 0) -> Optional[list]:
+    """Get user's capsules with pagination"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules)
+                .where(capsules.c.user_id == user_id)
+                .order_by(capsules.c.created_at.desc())
+                .limit(limit)
+                .offset(offset)
+            ).fetchall()
+            
+            return [dict(row._mapping) for row in result] if result else []
+            
+    except Exception as e:
+        logger.error(f"Error getting user capsules: {e}")
+        return None
+
+def get_capsule_by_id(capsule_id: int) -> Optional[Dict]:
+    """Get a specific capsule by ID"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules).where(capsules.c.id == capsule_id)
+            ).first()
+            
+            return dict(result._mapping) if result else None
+            
+    except Exception as e:
+        logger.error(f"Error getting capsule by ID: {e}")
+        return None
+
+def mark_capsule_delivered(capsule_id: int) -> bool:
+    """Mark a capsule as delivered"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(capsules)
+                .where(capsules.c.id == capsule_id)
+                .values(
+                    delivered=True,
+                    delivered_at=datetime.utcnow()
+                )
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error marking capsule as delivered: {e}")
+        return False
+
+def delete_capsule_and_update_user(capsule_id: int, user_id: int) -> tuple[bool, int]:
+    """Delete a capsule and update user's storage/count. Returns (success, file_size)"""
+    try:
+        with engine.connect() as conn:
+            # Get capsule info first
+            capsule_result = conn.execute(
+                select(capsules.c.file_size)
+                .where(capsules.c.id == capsule_id)
+                .where(capsules.c.user_id == user_id)
+            ).first()
+            
+            if not capsule_result:
+                return False, 0
+                
+            file_size = capsule_result[0] or 0
+            
+            # Delete the capsule
+            conn.execute(
+                capsules.delete()
+                .where(capsules.c.id == capsule_id)
+                .where(capsules.c.user_id == user_id)
+            )
+            
+            # Update user statistics
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(
+                    capsule_count=users.c.capsule_count - 1,
+                    total_storage_used=users.c.total_storage_used - file_size
+                )
+            )
+            
+            conn.commit()
+            return True, file_size
+            
+    except Exception as e:
+        logger.error(f"Error deleting capsule and updating user: {e}")
+        return False, 0
+
+def create_capsule(user_id: int, capsule_data: Dict) -> Optional[int]:
+    """Create a new capsule and return its ID"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                insert(capsules).values(
+                    user_id=user_id,
+                    capsule_uuid=capsule_data['capsule_uuid'],
+                    content_type=capsule_data['content_type'],
+                    content_text=capsule_data.get('content_text'),
+                    file_key=capsule_data.get('file_key'),
+                    s3_key=capsule_data.get('s3_key'),
+                    file_size=capsule_data.get('file_size', 0),
+                    recipient_type=capsule_data['recipient_type'],
+                    recipient_id=capsule_data.get('recipient_id'),
+                    delivery_time=capsule_data['delivery_time'],
+                    message=capsule_data.get('message')
+                )
+            )
+            conn.commit()
+            
+            capsule_id = result.inserted_primary_key[0]
+            
+            # Update user statistics
+            file_size = capsule_data.get('file_size', 0)
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(
+                    capsule_count=users.c.capsule_count + 1,
+                    total_storage_used=users.c.total_storage_used + file_size
+                )
+            )
+            conn.commit()
+            
+            return capsule_id
+            
+    except Exception as e:
+        logger.error(f"Error creating capsule: {e}")
+        return None
+
+def update_subscription(user_id: int, subscription_type: str, expires_at: Optional[datetime] = None) -> bool:
+    """Update user's subscription status"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(
+                    subscription_status=subscription_type,
+                    subscription_expires=expires_at
+                )
+            )
+            conn.commit()
+            return True
+    except Exception as e:
+        logger.error(f"Error updating subscription: {e}")
+        return False
+
+def get_pending_capsules() -> list:
+    """Get all capsules that should be delivered now"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules)
+                .where(capsules.c.delivered == False)
+                .where(capsules.c.delivery_time <= datetime.utcnow())
+            ).fetchall()
+            
+            return [dict(row._mapping) for row in result] if result else []
+            
+    except Exception as e:
+        logger.error(f"Error getting pending capsules: {e}")
+        return []
+
+def record_payment(user_id: int, payment_data: Dict) -> Optional[int]:
+    """Record a payment transaction"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                insert(payments).values(
+                    user_id=user_id,
+                    payment_type=payment_data['payment_type'],
+                    amount=payment_data['amount'],
+                    currency=payment_data['currency'],
+                    subscription_type=payment_data['subscription_type'],
+                    payment_id=payment_data['payment_id'],
+                    successful=payment_data.get('successful', False)
+                )
+            )
+            conn.commit()
+            return result.inserted_primary_key[0]
+            
+    except Exception as e:
+        logger.error(f"Error recording payment: {e}")
+        return None
