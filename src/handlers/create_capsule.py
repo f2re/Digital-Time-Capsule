@@ -8,37 +8,77 @@ from sqlalchemy import select, insert, update as sqlalchemy_update
 from ..config import (
     SELECTING_ACTION, SELECTING_CONTENT_TYPE, RECEIVING_CONTENT,
     SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
-    CONFIRMING_CAPSULE, PREMIUM_TIME_LIMIT_DAYS, FREE_TIME_LIMIT_DAYS, logger
+    CONFIRMING_CAPSULE, PREMIUM_TIME_LIMIT_DAYS, FREE_TIME_LIMIT_DAYS,
+    PREMIUM_TIER, FREE_TIER, PREMIUM_STORAGE_LIMIT, FREE_STORAGE_LIMIT,  # ADD THESE
+    logger
 )
 from ..database import get_user_data, check_user_quota, users, capsules, engine
 from ..s3_utils import encrypt_and_upload_file
 from ..translations import t
 
+# Around line 30-50 in start_create_capsule function:
+
 async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start capsule creation flow"""
+    from ..database import debug_user_balance
+
     query = update.callback_query
     if query:
         await query.answer()
-    
+
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+    debug_user_balance(user.id)
     if not user_data:
         logger.error(f"No user data found for user {user.id}")
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
 
-    # Check quota
-    can_create, error_msg = check_user_quota(user_data)
-    if not can_create:
+    # Check capsule balance
+    capsule_balance = user_data.get('capsule_balance', 0)
+
+    logger.info(f"User {user.id} starting capsule creation. Balance: {capsule_balance}")
+
+    if capsule_balance <= 0:
+        # User has no capsules - show purchase options
         keyboard = [[
-            InlineKeyboardButton(t(lang, 'upgrade_subscription'), callback_data='subscription'),
+            InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+        ], [
             InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
         ]]
-        
-        error_text = t(lang, 'quota_exceeded', message=error_msg)
-        
+
+        error_text = t(lang, 'no_capsule_balance')
+
+        if query and query.message:
+            try:
+                await query.edit_message_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
+            except Exception as e:
+                logger.error(f"Error editing message: {e}")
+                await query.message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            message = update.message or update.effective_message
+            if message:
+                await message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
+
+        return SELECTING_ACTION
+
+    # Check storage quota (still important!)
+    can_create, error_msg = check_user_quota(user_data, 0)
+
+    if not can_create and error_msg == "storage_limit_reached":
+        keyboard = [[
+            InlineKeyboardButton(t(lang, 'upgrade_subscription'), callback_data='subscription')
+        ], [
+            InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
+        ]]
+
+        used_mb = user_data['total_storage_used'] / (1024 * 1024)
+        storage_limit = PREMIUM_STORAGE_LIMIT if user_data['subscription_status'] == PREMIUM_TIER else FREE_STORAGE_LIMIT
+        limit_mb = storage_limit / (1024 * 1024)
+
+        error_text = t(lang, 'storage_limit_reached', used_mb=used_mb, limit_mb=limit_mb)
+
         if query and query.message:
             try:
                 await query.edit_message_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -48,6 +88,7 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
             message = update.message or update.effective_message
             if message:
                 await message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
+
         return SELECTING_ACTION
 
     # Initialize capsule data in context
@@ -61,11 +102,11 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton(t(lang, 'content_video'), callback_data='type_video')],
         [InlineKeyboardButton(t(lang, 'content_document'), callback_data='type_document')],
         [InlineKeyboardButton(t(lang, 'content_voice'), callback_data='type_voice')],
-        [InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')]
+        [InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]
     ]
 
     content_text = t(lang, 'select_content_type')
-    
+
     try:
         if query and query.message:
             try:
@@ -81,24 +122,25 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
 
     return SELECTING_CONTENT_TYPE
 
+
 async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle content type selection"""
     query = update.callback_query
     if not query:
         return SELECTING_CONTENT_TYPE
-        
+
     await query.answer()
 
     user = update.effective_user
     user_data = get_user_data(user.id)
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
 
     content_type = query.data.replace('type_', '')
     context.user_data['capsule']['content_type'] = content_type
-    
+
     logger.info(f"User {user.id} selected content type: {content_type}")
 
     type_names = {
@@ -110,7 +152,7 @@ async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE
     }
 
     instruction_text = t(lang, 'send_content', type=type_names.get(content_type, content_type))
-    
+
     try:
         await query.edit_message_text(instruction_text)
     except Exception as e:
@@ -123,10 +165,10 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     """Receive capsule content"""
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
     message = update.message
 
@@ -137,7 +179,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Get capsule data from context
     capsule = context.user_data.get('capsule', {})
     content_type = capsule.get('content_type')
-    
+
     if not content_type:
         logger.error("No content_type in context")
         await message.reply_text(t(lang, 'error_occurred'))
@@ -150,7 +192,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             if not message.text:
                 await message.reply_text(t(lang, 'send_content', type=t(lang, 'content_text')))
                 return RECEIVING_CONTENT
-                
+
             context.user_data['capsule']['content_text'] = message.text
             context.user_data['capsule']['file_size'] = len(message.text.encode('utf-8'))
             logger.info(f"Stored text content: {len(message.text)} characters")
@@ -159,7 +201,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             # Handle file content
             file = None
             ext = 'bin'
-            
+
             if content_type == 'photo' and message.photo:
                 file = await message.photo[-1].get_file()
                 ext = 'jpg'
@@ -201,7 +243,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
                 # Encrypt and upload
                 s3_key, encrypted_key = encrypt_and_upload_file(bytes(file_bytes), ext)
-                
+
                 if not s3_key or not encrypted_key:
                     logger.error("Failed to upload file to S3")
                     await message.reply_text(t(lang, 'error_occurred'))
@@ -219,7 +261,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         # Confirm content received
         await message.reply_text(t(lang, 'content_received'))
-        
+
         # Move to time selection
         return await show_time_selection(update, context)
 
@@ -232,10 +274,10 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
     """Show time selection menu"""
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
 
     keyboard = [
@@ -253,11 +295,11 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
         ],
         [InlineKeyboardButton(t(lang, 'time_1year'), callback_data='time_1y')],
         [InlineKeyboardButton(t(lang, 'time_custom'), callback_data='time_custom')],
-        [InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')]
+        [InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]
     ]
 
     time_text = t(lang, 'select_time')
-    
+
     try:
         if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -274,14 +316,14 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     query = update.callback_query
     if not query:
         return SELECTING_TIME
-        
+
     await query.answer()
 
     user = update.effective_user
     user_data = get_user_data(user.id)
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
     time_option = query.data.replace('time_', '')
 
@@ -291,7 +333,7 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     # Calculate delivery time with proper timezone handling
     now = datetime.now(timezone.utc)
-    
+
     try:
         if time_option == '1h':
             delivery_time = now + timedelta(hours=1)
@@ -329,7 +371,7 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         logger.info(f"Delivery time set: {delivery_time}")
 
         return await show_recipient_selection(update, context)
-        
+
     except Exception as e:
         logger.error(f"Error in select_time: {e}")
         await query.edit_message_text(t(lang, 'error_occurred'))
@@ -341,7 +383,7 @@ async def show_recipient_selection(update: Update, context: ContextTypes.DEFAULT
     user_data = get_user_data(user.id)
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
 
     keyboard = [
@@ -352,7 +394,7 @@ async def show_recipient_selection(update: Update, context: ContextTypes.DEFAULT
     ]
 
     recipient_text = t(lang, 'select_recipient')
-    
+
     try:
         if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(recipient_text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -367,14 +409,14 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Handle recipient selection"""
     query = update.callback_query
     message = update.message
-    
+
     user = update.effective_user
     user_data = get_user_data(user.id)
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
-    
+
     if query:
         await query.answer()
         recipient_type = query.data.replace('recipient_', '')
@@ -384,17 +426,17 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             context.user_data['capsule']['recipient_id'] = user.id
             logger.info(f"Recipient set to self for user {user.id}")
             return await show_confirmation(update, context)
-            
+
         elif recipient_type in ['user', 'group']:
             context.user_data['capsule']['recipient_type'] = recipient_type
             context.user_data['waiting_for_recipient'] = True
-            
+
             instruction_key = 'enter_user_id_instruction' if recipient_type == 'user' else 'enter_group_id_instruction'
-            
+
             await query.edit_message_text(
                 t(lang, instruction_key),
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='main_menu')
+                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
                 ]])
             )
             return SELECTING_RECIPIENT
@@ -403,7 +445,7 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         try:
             recipient_input = message.text.strip()
             recipient_type = context.user_data['capsule']['recipient_type']
-            
+
             # Parse recipient ID based on type
             if recipient_type == 'group':
                 if not recipient_input.startswith('-') and recipient_input.isdigit():
@@ -412,7 +454,7 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             else:  # user
                 if recipient_input.startswith('@'):
                     recipient_input = recipient_input[1:]
-                
+
                 if recipient_input.isdigit():
                     recipient_id = int(recipient_input)
                 else:
@@ -420,7 +462,7 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
             context.user_data['capsule']['recipient_id'] = recipient_id
             context.user_data.pop('waiting_for_recipient', None)
-            
+
             logger.info(f"Recipient set: {recipient_type} -> {recipient_id}")
             return await show_confirmation(update, context)
 
@@ -437,36 +479,36 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user_data = get_user_data(user.id)
     if not user_data:
         return SELECTING_ACTION
-        
+
     lang = user_data['language_code']
-    
+
     capsule = context.user_data.get('capsule', {})
-    
+
     if not capsule or 'delivery_time' not in capsule:
         logger.error(f"Invalid capsule data in context for user {user.id}: {capsule}")
         await update.effective_message.reply_text(t(lang, "error_occurred"))
         return SELECTING_ACTION
-    
+
     # Format recipient
     recipient_text = ""
     if capsule['recipient_type'] == "self":
         recipient_text = t(lang, "recipient_self")
     else:
         recipient_text = f"{capsule['recipient_type']}: {capsule.get('recipient_id', 'Unknown')}"
-    
+
     # Format time
     time_text = capsule['delivery_time'].strftime("%d.%m.%Y %H:%M")
-    
+
     keyboard = [
         [InlineKeyboardButton(t(lang, "confirm_yes"), callback_data="confirm_yes")],
-        [InlineKeyboardButton(t(lang, "confirm_no"), callback_data="main_menu")]
+        [InlineKeyboardButton(t(lang, "confirm_no"), callback_data="cancel")]
     ]
-    
+
     confirmation_text = t(lang, "confirm_capsule",
                          type=capsule.get('content_type', 'unknown'),
                          time=time_text,
                          recipient=recipient_text)
-    
+
     try:
         if hasattr(update, 'callback_query') and update.callback_query:
             await update.callback_query.edit_message_text(confirmation_text, reply_markup=InlineKeyboardMarkup(keyboard))
@@ -474,23 +516,24 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             await update.effective_message.reply_text(confirmation_text, reply_markup=InlineKeyboardMarkup(keyboard))
     except Exception as e:
         logger.error(f"Error in show_confirmation: {e}")
-    
+
     return CONFIRMING_CAPSULE
+
 
 async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Create the capsule in database"""
     query = update.callback_query
     if not query:
         return CONFIRMING_CAPSULE
-        
-    await query.answer()
 
+    await query.answer()
     user = update.effective_user
-    user_data = get_user_data(user.id)
-    if not user_data:
+    userdata = get_user_data(user.id)
+
+    if not userdata:
         return SELECTING_ACTION
-        
-    lang = user_data['language_code']
+
+    lang = userdata['language_code']
     capsule_data = context.user_data.get('capsule', {})
 
     if not capsule_data:
@@ -499,12 +542,22 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         return SELECTING_ACTION
 
     try:
+        from ..database import deduct_capsule_from_balance
+
+        if not deduct_capsule_from_balance(userdata['id']):
+            await query.edit_message_text(
+                t(lang, 'no_capsule_balance'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                ]])
+            )
+            return SELECTING_ACTION
+
         # Create capsule in database
         with engine.connect() as conn:
-            # Insert capsule
             result = conn.execute(
                 insert(capsules).values(
-                    user_id=user_data['id'],
+                    user_id=userdata['id'],
                     capsule_uuid=str(uuid.uuid4()),
                     content_type=capsule_data['content_type'],
                     content_text=capsule_data.get('content_text'),
@@ -520,15 +573,13 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             # Update user stats
             conn.execute(
                 sqlalchemy_update(users)
-                .where(users.c.id == user_data['id'])
+                .where(users.c.id == userdata['id'])
                 .values(
                     capsule_count=users.c.capsule_count + 1,
                     total_storage_used=users.c.total_storage_used + capsule_data.get('file_size', 0)
                 )
             )
-
             conn.commit()
-            
             capsule_id = result.inserted_primary_key[0]
             logger.info(f"Capsule created successfully: ID {capsule_id} for user {user.id}")
 
@@ -551,7 +602,7 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
         time_text = capsule_data['delivery_time'].strftime('%d.%m.%Y %H:%M')
         success_text = t(lang, 'capsule_created', time=time_text)
-        
+
         await query.edit_message_text(
             success_text,
             reply_markup=InlineKeyboardMarkup([[

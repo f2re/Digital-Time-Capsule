@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 SQLite Database Initialization Script
-Creates tables for Digital Time Capsule bot
+Creates tables for Digital Time Capsule bot with new payment system
 """
 
 import os
@@ -13,23 +13,18 @@ from sqlalchemy import (
 from datetime import datetime
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
-
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///time_capsule.db")
 
-# Ensure SQLite is being used
 if not DATABASE_URL.startswith("sqlite"):
     print("❌ Error: This script is for SQLite initialization only.")
-    print("   Please check DATABASE_URL in your .env file.")
     exit(1)
 
 print(f"📊 Initializing SQLite database: {DATABASE_URL}")
-
 engine = create_engine(DATABASE_URL)
 metadata = MetaData()
 
-# Users table
+# Users table with capsule_balance
 users = Table('users', metadata,
     Column('id', Integer, primary_key=True),
     Column('telegram_id', BigInteger, unique=True, nullable=False, index=True),
@@ -40,7 +35,8 @@ users = Table('users', metadata,
     Column('subscription_expires', DateTime, nullable=True),
     Column('created_at', DateTime, default=datetime.utcnow),
     Column('total_storage_used', BigInteger, default=0),
-    Column('capsule_count', Integer, default=0)
+    Column('capsule_count', Integer, default=0),
+    Column('capsule_balance', Integer, default=0)  # NEW FIELD
 )
 
 # Capsules table
@@ -75,15 +71,38 @@ payments = Table('payments', metadata,
     Column('created_at', DateTime, default=datetime.utcnow)
 )
 
+# Transactions table (NEW)
+transactions = Table('transactions', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
+    Column('transaction_type', String(50)),
+    Column('stars_paid', Integer),
+    Column('capsules_added', Integer, default=0),
+    Column('created_at', DateTime, default=datetime.utcnow),
+    Column('telegram_payment_charge_id', String(255), unique=True)
+)
+
+# Migration history table (NEW)
+migration_history = Table('migration_history', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('version', String(50), unique=True, nullable=False),
+    Column('name', String(255), nullable=False),
+    Column('applied_at', DateTime, default=datetime.utcnow),
+    Column('success', Boolean, default=True),
+    Column('error_message', String(1000), nullable=True)
+)
+
 try:
-    # Create all tables
     metadata.create_all(engine)
     print("✅ Database tables created successfully!")
     print("\n📋 Tables created:")
-    print("   - users")
+    print("   - users (with capsule_balance)")
     print("   - capsules")
     print("   - payments")
+    print("   - transactions (NEW)")
+    print("   - migration_history (NEW)")
     print("\n🎉 SQLite database is ready to use!")
+    print("\n💡 When you start the bot, migrations will run automatically")
 
 except Exception as e:
     print(f"❌ Error creating tables: {e}")

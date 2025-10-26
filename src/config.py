@@ -44,20 +44,65 @@ CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS) 
 FREE_TIER = 'free'
 PREMIUM_TIER = 'premium'
 
-# Limits
-FREE_CAPSULE_LIMIT = 3
-FREE_STORAGE_LIMIT = 10 * 1024 * 1024  # 10 MB
-FREE_TIME_LIMIT_DAYS = 365  # 1 year
 
-PREMIUM_CAPSULE_LIMIT = 999999  # Unlimited
-PREMIUM_STORAGE_LIMIT = 1024 * 1024 * 1024  # 1 GB
+# Storage limits (updated as per requirements)
+FREE_STORAGE_LIMIT = 100 * 1024 * 1024  # 100 MB
+PREMIUM_STORAGE_LIMIT = 500 * 1024 * 1024  # 500 MB
+
+# Time limits
+FREE_TIME_LIMIT_DAYS = 365  # 1 year
 PREMIUM_TIME_LIMIT_DAYS = 365 * 25  # 25 years
 
-# Pricing (in Telegram Stars and rubles)
-PREMIUM_SINGLE_PRICE = 200  # rubles
-PREMIUM_YEAR_PRICE = 400  # rubles
-PREMIUM_SINGLE_STARS = 20  # Telegram Stars
-PREMIUM_YEAR_STARS = 40  # Telegram Stars
+# Single capsule pricing (unified for all content types)
+CAPSULE_PRICE_STARS = 4
+CAPSULE_PRICE_RUBLES = 6.8
+
+# Capsule packs with progressive discounts
+CAPSULE_PACKS = {
+    'pack_3': {
+        'price_stars': 10,
+        'price_rubles': 17,
+        'count': 3,
+        'discount': 17
+    },
+    'pack_10': {
+        'price_stars': 30,
+        'price_rubles': 51,
+        'count': 10,
+        'discount': 25
+    },
+    'pack_25': {
+        'price_stars': 65,
+        'price_rubles': 110.5,
+        'count': 25,
+        'discount': 35
+    },
+    'pack_100': {
+        'price_stars': 220,
+        'price_rubles': 374,
+        'count': 100,
+        'discount': 45
+    }
+}
+
+# Premium subscription pricing
+PREMIUM_MONTH_STARS = 60
+PREMIUM_MONTH_RUBLES = 102
+PREMIUM_MONTH_CAPSULES = 20  # Included capsules per month
+
+PREMIUM_YEAR_STARS = 600
+PREMIUM_YEAR_RUBLES = 1020
+PREMIUM_YEAR_CAPSULES = 240  # Included capsules per year (20*12)
+
+# Legacy compatibility (can be removed after migration)
+PREMIUM_SINGLE_PRICE = CAPSULE_PRICE_RUBLES  # For backward compatibility
+PREMIUM_YEAR_PRICE = PREMIUM_YEAR_RUBLES
+PREMIUM_SINGLE_STARS = CAPSULE_PRICE_STARS
+PREMIUM_YEAR_STARS = PREMIUM_YEAR_STARS
+
+# Capsule limits (free users need to buy, premium get included)
+FREE_CAPSULE_LIMIT = 0  # Free users must purchase capsules
+PREMIUM_CAPSULE_LIMIT = 999999  # Effectively unlimited
 
 # Supported content types
 SUPPORTED_TYPES = ['text', 'photo', 'video', 'document', 'voice', 'audio']
