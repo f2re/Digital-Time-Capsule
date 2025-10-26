@@ -1,571 +1,675 @@
-# 🕰️ Digital Time Capsule Bot
+# 🕰 Digital Time Capsule - Telegram Bot
 
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/downloads/)
-[![python-telegram-bot](https://img.shields.io/badge/python--telegram--bot-21.0+-blue.svg)](https://python-telegram-bot.org/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Telegram](https://img.shields.io/badge/Telegram-Bot-blue.svg?logo=telegram)](https://t.me/your_bot_username)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg?logo=docker)](Dockerfile)
-[![Stars](https://img.shields.io/badge/Telegram-Stars-yellow.svg)](https://core.telegram.org/bots/payments-stars)
+**Send messages to the future. Securely. Encrypted. Reliable.**
 
-A powerful Telegram bot that allows users to create encrypted time capsules and send messages to the future! Features include multi-language support (Russian/English), Telegram Stars payment integration, S3 cloud storage, and scheduled delivery.
+A Telegram bot that allows users to create time capsules containing text, photos, videos, documents, and voice messages, which are delivered at a specified future date. Built with military-grade encryption and cloud storage.
+
+[![Python](https://img.shields.io/ot API](https://img.shields.io/badge/Telegram%20Bot%20API-Latest.shields.io/badge/License-MIT-green 📋 Table of Contents
+
+- [Features](#-features)
+- [Payment System](#-payment-system)
+- [Subscription Plans](#-subscription-plans)
+- [Technology Stack](#-technology-stack)
+- [Installation](#-installation)
+- [Configuration](#-configuration)
+- [Database Setup](#-database-setup)
+- [Running the Bot](#-running-the-bot)
+- [Project Structure](#-project-structure)
+- [How It Works](#-how-it-works)
+- [Security](#-security)
+- [Migration System](#-migration-system)
+- [Commands](#-bot-commands)
+- [Contributing](#-contributing)
+- [License](#-license)
+
+***
 
 ## ✨ Features
 
 ### Core Functionality
-- 📅 **Time Capsule Creation** - Send messages to your future self, friends, or groups
-- 🔐 **End-to-End Encryption** - All content is encrypted using Fernet (symmetric encryption)
-- ☁️ **Cloud Storage** - Secure file storage in Yandex Object Storage (S3-compatible)
-- ⏰ **Scheduled Delivery** - Automatic delivery at specified date/time using APScheduler
-- 🌍 **Multi-language** - Full support for Russian and English
+- 📝 **Multiple Content Types**: Text, photos, videos, documents, and voice messages
+- ⏰ **Flexible Delivery Times**: From 1 hour to 25 years (premium)
+- 🎯 **Delivery Options**: To yourself, specific users, or groups
+- 🔐 **Military-Grade Encryption**: Fernet (symmetric encryption) for all media files
+- ☁️ **Cloud Storage**: Yandex S3-compatible storage for media files
+- 📱 **Bilingual Interface**: Russian and English support
+- 🔄 **Automatic Delivery**: Background scheduler checks and delivers capsules on time
 
-### Content Types
-- 📝 Text messages
-- 🖼️ Photos
-- 🎥 Videos
-- 📎 Documents
-- 🎤 Voice messages
-- 🎵 Audio files
+### Payment & Monetization
+- 💎 **Telegram Stars Integration**: Native Telegram payment system
+- 📦 **Capsule-Based System**: Pay-per-capsule model with progressive discounts
+- 🎁 **Subscription Plans**: Monthly and yearly premium subscriptions with included capsules
+- 💰 **Flexible Pricing**: From single capsules to bulk packs (up to 45% discount)
 
-### Payment & Subscriptions
-- ⭐ **Telegram Stars Integration** - Native in-app payments
-- 💳 **Flexible Plans**:
-  - **Free Tier**: 3 capsules, 10 MB storage, up to 1 year delivery
-  - **Premium Single**: 20 Stars for one premium capsule
-  - **Premium Yearly**: 40 Stars for unlimited capsules, 1 GB storage, up to 25 years delivery
-- 💰 **Payment Support** - Built-in `/paysupport` command with refund policy
+### Advanced Features
+- 🗄️ **Automatic Database Migrations**: Version-controlled schema updates
+- 📊 **Usage Statistics**: Track capsules, storage, and subscription status
+- 🛡️ **Quota Management**: Storage and capsule limits based on tier
+- 🔍 **Capsule Management**: View, delete, and track all your time capsules
+- 📈 **Transaction History**: Complete payment and capsule purchase tracking
 
-### Technical Features
-- 🗄️ **Dual Database Support** - SQLite (dev) and PostgreSQL (production)
-- 🐳 **Docker Ready** - Containerized deployment with docker-compose
-- 📊 **Conversation Management** - State-based conversation flow
-- 🔄 **Auto-scheduling** - Background task scheduler for capsule delivery
-- 📈 **Usage Tracking** - Storage and capsule count monitoring
+***
 
-## 📋 Table of Contents
+## 💰 Payment System
 
-- [Installation](#-installation)
-- [Configuration](#-configuration)
-- [Project Structure](#-project-structure)
-- [Usage](#-usage)
-- [Payment Setup](#-payment-setup)
-- [Deployment](#-deployment)
-- [Commands](#-commands)
-- [Development](#-development)
-- [License](#-license)
+### **Capsule Balance Model**
 
-## 🚀 Installation
+The bot uses a **capsule balance system** where users purchase capsules that are deducted when creating time capsules. This replaces the old limit-based system.
 
-### Prerequisites
+#### **How It Works:**
+1. Users start with **0 capsules** (new users may receive 3 starter capsules via migration)
+2. Each capsule creation **deducts 1 capsule** from balance
+3. Users can purchase:
+   - **Single capsules** (4 stars each)
+   - **Capsule packs** with discounts
+   - **Premium subscriptions** with included capsules
 
-- Python 3.11 or higher
-- PostgreSQL (for production) or SQLite (for development)
-- Yandex Cloud account (for S3 storage)
-- Telegram Bot Token from [@BotFather](https://t.me/BotFather)
+### **Pricing Structure**
 
-### Local Setup
+#### **💎 Single Capsule**
+- **Price**: 4 Telegram Stars (≈₽6.8)
+- **Content**: Any type (text, photo, video, document, voice)
+- **Valid for**: One-time use
 
-1. **Clone the repository**
-```bash
-git clone https://github.com/yourusername/time-capsule-bot.git
-cd time-capsule-bot
+#### **📦 Capsule Packs** (Progressive Discounts)
+
+| Pack | Capsules | Price (Stars) | Price (₽) | Discount |
+|------|----------|---------------|-----------|----------|
+| Pack 3 | 3 capsules | 10 ⭐ | ₽17 | **17%** |
+| Pack 10 | 10 capsules | 30 ⭐ | ₽51 | **25%** |
+| Pack 25 | 25 capsules | 65 ⭐ | ₽110.5 | **35%** |
+| Pack 100 | 100 capsules | 220 ⭐ | ₽374 | **45%** |
+
+### **Cost Analysis**
+
+```
+Single Capsule:     ₽6.8  per capsule (4 stars)
+Pack 3 (17% off):   ₽5.67 per capsule (3.3 stars)
+Pack 10 (25% off):  ₽5.1  per capsule (3 stars)
+Pack 25 (35% off):  ₽4.42 per capsule (2.6 stars)
+Pack 100 (45% off): ₽3.74 per capsule (2.2 stars)
 ```
 
-2. **Create virtual environment**
+**Best Value**: Pack 100 saves **45%** compared to single purchases!
+
+***
+
+## 📊 Subscription Plans
+
+### **FREE Plan**
+- ❌ **No included capsules** (must purchase separately)
+- 💾 **Storage**: 100 MB
+- ⏰ **Max delivery time**: 1 year
+- 📦 **Capsule types**: All types supported
+
+### **💎 PREMIUM Month**
+- **Price**: 60 Stars (₽102)
+- ✅ **20 included capsules** per month
+- 💾 **Storage**: 500 MB
+- ⏰ **Max delivery time**: 25 years
+- 🎯 **Priority support**
+- 📈 **Cost per capsule**: ₽5.1 (if all used)
+
+### **💎 PREMIUM Year**
+- **Price**: 600 Stars (₽1,020)
+- ✅ **240 included capsules** per year (20/month)
+- 💾 **Storage**: 500 MB
+- ⏰ **Max delivery time**: 25 years
+- 🎯 **Priority support**
+- 💰 **Save 17%** vs monthly plan
+- 📈 **Cost per capsule**: ₽4.25 (if all used)
+
+### **Comparison Table**
+
+| Feature | FREE | Premium Month | Premium Year |
+|---------|------|---------------|--------------|
+| **Price** | ₽0 | ₽102/month | ₽1,020/year |
+| **Included Capsules** | 0 | 20/month | 240/year |
+| **Storage** | 100 MB | 500 MB | 500 MB |
+| **Max Delivery** | 1 year | 25 years | 25 years |
+| **Cost per Capsule** | ₽6.8 | ₽5.1 | ₽4.25 |
+| **Best For** | Trying out | Regular users | Power users |
+
+***
+
+## 🛠 Technology Stack
+
+### **Backend**
+- **Python 3.9+**: Core programming language
+- **python-telegram-bot 20.x**: Telegram Bot API wrapper
+- **SQLAlchemy 2.x**: ORM for database operations
+- **APScheduler**: Background task scheduling for capsule delivery
+- **Cryptography (Fernet)**: Symmetric encryption for file security
+
+### **Storage & Database**
+- **PostgreSQL / SQLite**: Relational database (configurable)
+- **Yandex Object Storage (S3)**: Cloud storage for media files
+- **Boto3**: S3-compatible API client
+
+### **Additional Libraries**
+- **python-dateutil**: Date/time parsing
+- **python-dotenv**: Environment variable management
+
+***
+
+## 📥 Installation
+
+### **Prerequisites**
+- Python 3.9 or higher
+- PostgreSQL or SQLite
+- Yandex Object Storage account (S3-compatible)
+- Telegram Bot Token (from [@BotFather](https://t.me/BotFather))
+
+### **Step 1: Clone Repository**
+
 ```bash
-python -m venv venv
+git clone https://github.com/f2re/Digital-Time-Capsule.git
+cd Digital-Time-Capsule
+```
+
+### **Step 2: Create Virtual Environment**
+
+```bash
+python3 -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-3. **Install dependencies**
+### **Step 3: Install Dependencies**
+
 ```bash
 pip install -r requirements.txt
 ```
 
-4. **Configure environment variables**
-```bash
-cp .env.example .env
-# Edit .env with your configuration
+**requirements.txt:**
+```txt
+python-telegram-bot[job-queue]==20.7
+sqlalchemy==2.0.23
+cryptography==41.0.7
+boto3==1.29.7
+apscheduler==3.10.4
+python-dateutil==2.8.2
+python-dotenv==1.0.0
+psycopg2-binary==2.9.9  # For PostgreSQL
 ```
 
-5. **Initialize database**
-```bash
-# For SQLite (development)
-python init_db_sqlite.py
-
-# For PostgreSQL (production)
-python init_db_postgresql.py
-```
-
-6. **Run the bot**
-```bash
-python main.py
-```
+***
 
 ## ⚙️ Configuration
 
-### Environment Variables
+### **Step 1: Create `.env` File**
 
 Create a `.env` file in the project root:
 
-```env
-# Bot Configuration
+```bash
+# Telegram Bot
 BOT_TOKEN=your_telegram_bot_token_here
 
-# Database
-DATABASE_URL=sqlite:///time_capsule.db  # or postgresql://user:pass@host:port/dbname
+# Database (choose one)
+DATABASE_URL=sqlite:///time_capsule.db
+# DATABASE_URL=postgresql://user:password@localhost:5432/time_capsule
 
 # Encryption
-MASTER_KEY=your_fernet_key_here  # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+MASTER_KEY=your_generated_master_key_here
 
-# Yandex Object Storage (S3)
+# Yandex Object Storage (S3-compatible)
 YANDEX_ACCESS_KEY=your_yandex_access_key
 YANDEX_SECRET_KEY=your_yandex_secret_key
 YANDEX_BUCKET_NAME=your_bucket_name
 YANDEX_REGION=ru-central1
 
-# Payment (Optional - for traditional payment providers)
-PAYMENT_PROVIDER_TOKEN=  # Leave empty for Telegram Stars
+# Payment (optional - for traditional payments)
+PAYMENT_PROVIDER_TOKEN=your_payment_provider_token
 ```
 
-### Yandex Cloud Setup
+### **Step 2: Generate Master Key**
 
-1. **Create S3 Bucket**:
-   - Go to [Yandex Cloud Console](https://console.cloud.yandex.com/)
-   - Create a new Object Storage bucket
-   - Set bucket permissions appropriately
-
-2. **Generate Access Keys**:
-   - Go to "Service Accounts"
-   - Create a service account with `storage.editor` role
-   - Generate static access keys
-   - Add keys to `.env` file
-
-### Database Configuration
-
-**SQLite** (Development):
-```python
-DATABASE_URL=sqlite:///time_capsule.db
-```
-
-**PostgreSQL** (Production):
-```python
-DATABASE_URL=postgresql://username:password@localhost:5432/timecapsule
-```
-
-## 📁 Project Structure
-
-```
-time-capsule-bot/
-├── src/
-│   ├── __init__.py
-│   ├── config.py              # Configuration and constants
-│   ├── database.py            # Database models and operations
-│   ├── translations.py        # Multi-language support
-│   ├── s3_utils.py           # S3 storage utilities
-│   ├── scheduler.py          # Task scheduling for delivery
-│   └── handlers/
-│       ├── __init__.py
-│       ├── start.py          # Start command and language selection
-│       ├── main_menu.py      # Main menu navigation
-│       ├── create_capsule.py # Capsule creation flow
-│       ├── view_capsules.py  # View and manage capsules
-│       ├── subscription.py   # Payment and subscription management
-│       ├── settings.py       # User settings
-│       └── help.py           # Help command
-├── main.py                    # Application entry point
-├── init_db_sqlite.py         # SQLite database initialization
-├── init_db_postgresql.py     # PostgreSQL database initialization
-├── requirements.txt          # Python dependencies
-├── Dockerfile               # Docker container configuration
-├── docker-compose.yml       # Docker Compose setup
-├── .env.example            # Environment variables template
-├── .gitignore
-└── README.md
-
-```
-
-## 🎯 Usage
-
-### Creating a Time Capsule
-
-1. Start the bot: `/start`
-2. Select your language (first time only)
-3. Click "✨ Create Capsule"
-4. Choose content type (text, photo, video, etc.)
-5. Send your content
-6. Select delivery time (1 hour to 1 year, or custom date)
-7. Choose recipient (yourself, another user, or group)
-8. Confirm creation
-
-### Managing Capsules
-
-- **View Capsules**: `/capsules` or "📦 My Capsules"
-- **Delete Capsule**: Select capsule → "🗑 Delete"
-- **Check Storage**: `/subscription`
-
-### Subscription Management
-
-- **View Plan**: `/subscription`
-- **Upgrade**: Select premium option and pay with Telegram Stars
-- **Support**: `/paysupport` for payment issues
-
-## 💳 Payment Setup
-
-### Telegram Stars Integration
-
-The bot uses **Telegram Stars** for in-app payments. No external payment provider needed!
-
-**Key Implementation Details**:
+Run the bot once to auto-generate a master key, or generate manually:
 
 ```python
-# Sending invoice
-await context.bot.send_invoice(
-    chat_id=chat_id,
-    title="Premium Subscription",
-    description="1 year of unlimited capsules",
-    payload=f"user_{user_id}_{uuid}",
-    provider_token="",  # Empty string for Stars!
-    currency="XTR",     # Telegram Stars currency
-    prices=[LabeledPrice(label="XTR", amount=40)],  # 40 Stars
-)
+from cryptography.fernet import Fernet
+print(Fernet.generate_key().decode())
 ```
 
-**Important Notes**:
-- `provider_token` must be an empty string `""`
-- `currency` must be `"XTR"`
-- `prices` must be a list with exactly one `LabeledPrice`
-- Maximum amount: 2500 Stars per transaction
-- Bot owner cannot test purchases (use secondary account)
+Add the generated key to `.env`:
+```
+MASTER_KEY=your_generated_key_here
+```
 
-### Testing Payments
+### **Step 3: Yandex Object Storage Setup**
 
-1. **Buy Test Stars**:
-   - Open Telegram → Settings → Telegram Stars
-   - Purchase minimum amount (50-100 Stars)
+1. Create a Yandex Cloud account
+2. Create an S3-compatible bucket
+3. Generate access keys
+4. Add credentials to `.env`
 
-2. **Test Flow**:
-   ```bash
-   /start → Subscription → Buy Premium → Pay with Stars
-   ```
+**Bucket Configuration:**
+- **Name**: Choose unique name
+- **Region**: `ru-central1`
+- **Access**: Private
+- **Versioning**: Disabled
+- **Encryption**: Optional (bot uses Fernet encryption)
 
-3. **Verify**:
-   - Check payment confirmation message
-   - Run `/subscription` to verify premium status
-   - Check logs for transaction ID
+***
 
-### Withdrawal
+## 🗄️ Database Setup
 
-Stars can be withdrawn after 21 days:
-1. Convert to Toncoin (TON cryptocurrency)
-2. Sell on exchange for fiat currency
-3. Or use for Telegram Ads
-4. Telegram takes ~30% commission
+### **Option 1: SQLite (Development)**
 
-## 🐳 Deployment
-
-### Docker Deployment
-
-1. **Build and run**:
 ```bash
-docker-compose up -d
+python init_db_sqlite.py
 ```
 
-2. **View logs**:
+**Advantages:**
+- ✅ No installation required
+- ✅ Single file database
+- ✅ Perfect for testing
+
+**Disadvantages:**
+- ⚠️ Not recommended for production
+- ⚠️ Limited concurrent writes
+
+### **Option 2: PostgreSQL (Production)**
+
+#### **Install PostgreSQL**
+
 ```bash
-docker-compose logs -f bot
+# Ubuntu/Debian
+sudo apt update
+sudo apt install postgresql postgresql-contrib
+
+# macOS
+brew install postgresql
+brew services start postgresql
+
+# Windows
+# Download from https://www.postgresql.org/download/windows/
 ```
 
-3. **Stop bot**:
+#### **Update `.env`**
+
 ```bash
-docker-compose down
+DATABASE_URL=postgresql://timecapsule_user:your_secure_password@localhost:5432/time_capsule
 ```
 
-### GitHub Actions Automated Deployment
+#### **Initialize Database**
 
-This project includes automated deployment via GitHub Actions. When you push a tag to the `main` branch (e.g., `v1.0.0`), it will automatically:
+```bash
+python init_db_postgresql.py
+```
 
-1. Build and push a Docker image to GitHub Container Registry (GHCR)
-2. Deploy the updated image to your production server via SSH
+### **Database Schema**
 
-#### Setup Instructions
+The bot automatically creates these tables:
 
-1. **Create a GitHub Environment:**
-   - Go to your repository Settings → Environments
-   - Create a new environment named `production`
+| Table | Description |
+|-------|-------------|
+| **users** | User profiles, subscription status, capsule balance |
+| **capsules** | Time capsule data and metadata |
+| **payments** | Traditional payment records (legacy) |
+| **transactions** | Capsule purchase transactions (Stars) |
+| **migration_history** | Database migration tracking |
 
-2. **Configure Required Secrets:**
-   - Go to repository Settings → Secrets and Variables → Actions
-   - Add the following secrets:
-   
-   | Secret Name | Description |
-   |-------------|-------------|
-   | `SSH_PRIVATE_KEY` | Private SSH key to access your production server |
-   | `DEPLOY_USER` | SSH username for your production server |
-   | `DEPLOY_HOST` | Hostname/IP address of your production server |
+**Key Fields:**
+- `users.capsule_balance`: Current available capsules (NEW)
+- `users.subscription_status`: 'free' or 'premium'
+- `users.subscription_expires`: Premium expiration date
+- `users.total_storage_used`: Storage usage in bytes
+- `transactions.transaction_type`: 'single', 'pack_3', 'premium_month', etc.
 
-3. **Server Requirements:**
-   - Docker and Docker Compose installed
-   - The repository code must be accessible on the server
-   - The server should be configured to accept SSH connections
+***
 
-4. **Deploying:**
-   - Simply push a tag to the `main` branch:
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
-   - The GitHub Action will automatically trigger and deploy your changes
+## 🚀 Running the Bot
 
-### Production Deployment
+### **Development Mode**
 
-**Using systemd** (Linux):
+```bash
+python main.py
+```
 
-1. Create service file: `/etc/systemd/system/timecapsule.service`
+### **Production Mode (with systemd)**
+
+Create `/etc/systemd/system/timecapsule-bot.service`:
+
 ```ini
 [Unit]
-Description=Time Capsule Telegram Bot
-After=network.target
+Description=Digital Time Capsule Telegram Bot
+After=network.target postgresql.service
 
 [Service]
 Type=simple
-User=botuser
-WorkingDirectory=/opt/timecapsule-bot
-Environment=PATH=/opt/timecapsule-bot/venv/bin
-ExecStart=/opt/timecapsule-bot/venv/bin/python main.py
+User=your_user
+WorkingDirectory=/path/to/Digital-Time-Capsule
+Environment="PATH=/path/to/venv/bin"
+ExecStart=/path/to/venv/bin/python main.py
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
 
-2. Enable and start:
+**Start Service:**
+
 ```bash
-sudo systemctl enable timecapsule
-sudo systemctl start timecapsule
-sudo systemctl status timecapsule
+sudo systemctl daemon-reload
+sudo systemctl enable timecapsule-bot
+sudo systemctl start timecapsule-bot
+sudo systemctl status timecapsule-bot
 ```
 
-### Environment-Specific Settings
+### **View Logs**
 
-**Development**:
-```env
-DATABASE_URL=sqlite:///time_capsule.db
-LOG_LEVEL=DEBUG
+```bash
+# Real-time logs
+sudo journalctl -u timecapsule-bot -f
+
+# Last 100 lines
+sudo journalctl -u timecapsule-bot -n 100
 ```
 
-**Production**:
-```env
-DATABASE_URL=postgresql://...
-LOG_LEVEL=INFO
+***
+
+## 📁 Project Structure
+
+```
+Digital-Time-Capsule/
+├── main.py                      # Bot entry point
+├── requirements.txt             # Python dependencies
+├── init_db_sqlite.py           # SQLite database initialization
+├── init_db_postgresql.py       # PostgreSQL database initialization
+├── migrate.py                  # Manual migration CLI tool
+├── .env                        # Environment variables (create this)
+├── assets/
+│   └── welcome.png             # Welcome screen image
+├── src/
+│   ├── config.py               # Configuration and pricing constants
+│   ├── database.py             # Database models and functions
+│   ├── scheduler.py            # Capsule delivery scheduler
+│   ├── s3_utils.py             # S3 storage utilities
+│   ├── translations.py         # Multilingual support (RU/EN)
+│   ├── handlers/
+│   │   ├── start.py            # /start command and language selection
+│   │   ├── main_menu.py        # Main menu navigation
+│   │   ├── create_capsule.py   # Capsule creation flow
+│   │   ├── view_capsules.py    # View user capsules
+│   │   ├── delete_capsule.py   # Delete capsules
+│   │   ├── subscription.py     # Payment and subscription handling
+│   │   ├── settings.py         # User settings
+│   │   └── help.py             # Help command
+│   └── migrations/
+│       ├── __init__.py
+│       ├── migration_manager.py           # Automatic migration system
+│       └── versions/
+│           ├── 001_add_capsule_balance.py    # Add capsule balance field
+│           └── 002_add_transactions_table.py # Add transactions table
+└── time_capsule.db             # SQLite database (auto-generated)
 ```
 
-## 📝 Commands
+***
+
+## 🔄 How It Works
+
+### **1. User Registration**
+```
+User → /start → Select Language → Show Main Menu
+                     ↓
+              Create User Record (capsule_balance = 0)
+```
+
+### **2. Capsule Purchase Flow**
+```
+User → Subscription Menu → Select Pack → Telegram Invoice
+                                             ↓
+                                    Pay with Stars
+                                             ↓
+                              Pre-checkout Validation
+                                             ↓
+                                Payment Successful
+                                             ↓
+                          Add Capsules to Balance
+                                             ↓
+                          Record Transaction
+```
+
+### **3. Capsule Creation Flow**
+```
+User → Create Capsule → Check Balance (>0?)
+                              ↓ YES
+                    Select Content Type
+                              ↓
+                      Upload Content
+                              ↓
+                      Select Delivery Time
+                              ↓
+                    Select Recipient
+                              ↓
+                      Confirm Capsule
+                              ↓
+                    Encrypt File (if media)
+                              ↓
+                    Upload to S3
+                              ↓
+                Store in Database
+                              ↓
+        Deduct 1 from Capsule Balance
+                              ↓
+            Schedule Delivery Job
+```
+
+### **4. Capsule Delivery**
+```
+Scheduler (every 60s) → Check Pending Capsules
+                              ↓
+                   Find capsules where:
+              delivery_time <= now AND delivered = false
+                              ↓
+                      For each capsule:
+                              ↓
+                  Download from S3
+                              ↓
+                    Decrypt File
+                              ↓
+              Send to Recipient (user/group)
+                              ↓
+            Mark as delivered in DB
+                              ↓
+            Delete from S3 (optional)
+```
+
+***
+
+## 🔐 Security
+
+### **Encryption Strategy**
+
+#### **File Encryption (Fernet)**
+- **Algorithm**: AES-128-CBC with HMAC-SHA256
+- **Key Management**: Master key encrypts individual file keys
+- **Process**:
+  1. Generate unique encryption key per file
+  2. Encrypt file with Fernet
+  3. Encrypt file key with master key
+  4. Store encrypted key in database
+  5. Store encrypted file in S3
+
+#### **Database Security**
+- **Encrypted Fields**: `file_key` (binary encrypted)
+- **Access Control**: Row-level user_id validation
+- **SQL Injection**: Protected by SQLAlchemy ORM
+
+#### **S3 Security**
+- **Private Bucket**: No public access
+- **Unique Keys**: UUID-based file naming
+- **Access Control**: IAM-based credentials
+- **HTTPS**: Encrypted transit
+
+### **Best Practices**
+
+```python
+# config.py - Security constants
+MASTER_KEY = os.getenv('MASTER_KEY')  # Never hardcode!
+master_cipher = Fernet(MASTER_KEY.encode())
+
+# s3_utils.py - Encryption example
+def encrypt_and_upload_file(file_bytes, file_id):
+    # Generate unique key
+    file_key = Fernet.generate_key()
+    cipher = Fernet(file_key)
+
+    # Encrypt file
+    encrypted_data = cipher.encrypt(file_bytes)
+
+    # Encrypt key with master key
+    encrypted_key = master_cipher.encrypt(file_key)
+
+    # Upload to S3
+    s3_key = f"capsules/{uuid.uuid4()}.enc"
+    upload_to_s3(encrypted_data, s3_key)
+
+    return encrypted_key, s3_key
+```
+
+***
+
+## 🔄 Migration System
+
+### **Automatic Migrations**
+
+The bot includes an automatic database migration system that runs on startup:
+
+```python
+# main.py
+async def main():
+    init_db()  # Create tables
+
+    from src.migrations import run_migrations
+    migration_success = run_migrations()  # Apply pending migrations
+
+    if not migration_success:
+        logger.error("Migrations failed!")
+        return
+```
+
+### **Migration Versions**
+
+#### **001_add_capsule_balance.py**
+- Adds `capsule_balance` field to users table
+- Grants 3 starter capsules to existing free users
+- Required for new payment system
+
+#### **002_add_transactions_table.py**
+- Creates `transactions` table for Stars payments
+- Tracks all capsule purchases
+- Stores transaction history
+
+### **Manual Migration Commands**
+
+```bash
+# Check migration status
+python migrate.py status
+
+# Run pending migrations
+python migrate.py migrate
+
+# Rollback specific migration
+python migrate.py rollback --version 001
+```
+
+### **Migration Output Example**
+
+```
+🔄 Starting database migration check...
+✅ Migration history table created
+📦 Found 2 pending migration(s)
+📦 Applying migration 001: 001_add_capsule_balance
+  ✓ Added capsule_balance column (SQLite)
+  ✓ Granted 3 starter capsules to existing free users
+✅ Migration 001 applied successfully
+📦 Applying migration 002: 002_add_transactions_table
+  ✓ Created transactions table (SQLite)
+  ✓ Created index on transactions.user_id
+✅ Migration 002 applied successfully
+🎉 Successfully applied 2 migration(s)
+✅ Database is up to date
+```
+
+***
+
+## 🤖 Bot Commands
+
+### **User Commands**
 
 | Command | Description |
 |---------|-------------|
 | `/start` | Start bot and show main menu |
-| `/create` | Create a new time capsule |
-| `/capsules` | View all your capsules |
-| `/subscription` | Check subscription status and upgrade |
+| `/create` | Create new time capsule |
+| `/capsules` | View your capsules |
+| `/subscription` | Manage subscription and buy capsules |
 | `/settings` | Change language and preferences |
 | `/help` | Show help information |
 | `/paysupport` | Payment support and refund policy |
 
-## 🔧 Development
+### **Main Menu Options**
 
-### Adding New Features
+📝 **Create Capsule**: Start capsule creation wizard
+📦 **My Capsules**: View, manage, and delete capsules
+💎 **Subscription**: Buy capsules or upgrade to premium
+⚙️ **Settings**: Change language
+❓ **Help**: Get assistance
 
-1. **New Handler**:
-```python
-# src/handlers/my_feature.py
-from telegram import Update
-from telegram.ext import ContextTypes
-
-async def my_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Your code here
-    pass
-```
-
-2. **Register in main.py**:
-```python
-from src.handlers.my_feature import my_handler
-application.add_handler(CommandHandler('mycommand', my_handler))
-```
-
-### Adding Translations
-
-Edit `src/translations.py`:
-```python
-TRANSLATIONS = {
-    'ru': {
-        'new_key': 'Русский текст',
-    },
-    'en': {
-        'new_key': 'English text',
-    }
-}
-```
-
-### Database Migrations
-
-**Adding a column**:
-```python
-from sqlalchemy import Column, String
-from src.database import metadata, engine
-
-# Add column to table definition
-my_table = Table('my_table', metadata,
-    Column('new_column', String(255)),
-    extend_existing=True
-)
-
-# Apply migration
-with engine.connect() as conn:
-    conn.execute(text("ALTER TABLE my_table ADD COLUMN new_column VARCHAR(255)"))
-    conn.commit()
-```
-
-### Running Tests
-
-```bash
-# Install test dependencies
-pip install pytest pytest-asyncio
-
-# Run tests
-pytest tests/
-
-# With coverage
-pytest --cov=src tests/
-```
-
-## 📊 Database Schema
-
-### Users Table
-- `id` - Primary key
-- `telegram_id` - Unique Telegram user ID
-- `username` - Telegram username
-- `first_name` - User's first name
-- `language_code` - Preferred language (ru/en)
-- `subscription_status` - free/premium
-- `subscription_expires` - Premium expiration date
-- `total_storage_used` - Total bytes used
-- `capsule_count` - Number of capsules created
-
-### Capsules Table
-- `id` - Primary key
-- `user_id` - Foreign key to users
-- `capsule_uuid` - Unique capsule identifier
-- `content_type` - text/photo/video/etc
-- `content_text` - Text content (if applicable)
-- `file_key` - Encrypted S3 file key
-- `s3_key` - S3 object key
-- `file_size` - File size in bytes
-- `recipient_type` - self/user/group
-- `recipient_id` - Target Telegram ID
-- `delivery_time` - Scheduled delivery datetime
-- `delivered` - Boolean delivery status
-- `message` - Optional message with capsule
-
-### Payments Table
-- `id` - Primary key
-- `user_id` - Foreign key to users
-- `payment_type` - stars/provider
-- `amount` - Payment amount
-- `currency` - XTR for Stars
-- `subscription_type` - single/yearly
-- `payment_id` - Transaction ID (for refunds)
-- `successful` - Boolean payment status
-- `created_at` - Payment timestamp
-
-## 🔒 Security Features
-
-- **Encryption**: All file keys encrypted with Fernet
-- **Input Validation**: Strict validation of dates, file sizes, formats
-- **Rate Limiting**: Quota checks prevent abuse
-- **Secure Storage**: Files stored in private S3 bucket
-- **No Data Leakage**: Capsules only deliverable to intended recipients
-- **SQL Injection Protection**: SQLAlchemy ORM prevents injection attacks
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**1. "Bad Request: currency XTR is invalid"**
-```bash
-# Solution: Update python-telegram-bot
-pip install --upgrade python-telegram-bot
-```
-
-**2. Payment not working**
-```python
-# Check these:
-provider_token="" # Must be empty string!
-currency="XTR"    # Must be XTR
-prices=[LabeledPrice(label="XTR", amount=N)]  # Exactly one item
-```
-
-**3. Bot owner can't buy**
-```text
-This is normal! Telegram prevents bot owners from purchasing.
-Test with a second account.
-```
-
-**4. Database connection error**
-```bash
-# Check DATABASE_URL format
-# PostgreSQL: postgresql://user:pass@host:port/dbname
-# SQLite: sqlite:///path/to/db.db
-```
-
-**5. S3 upload fails**
-```bash
-# Verify credentials and bucket permissions
-# Ensure YANDEX_BUCKET_NAME is correct
-# Check service account has storage.editor role
-```
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+***
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please follow these guidelines:
 
-1. Fork the repository
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+1. **Fork** the repository
+2. Create a **feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit** your changes (`git commit -m 'Add amazing feature'`)
+4. **Push** to the branch (`git push origin feature/amazing-feature`)
+5. Open a **Pull Request**
 
-## 📧 Support
+### **Code Style**
+- Follow PEP 8
+- Use type hints
+- Add docstrings for functions
+- Write meaningful commit messages
 
-For support, contact:
-- Telegram: [@your_support_username](https://t.me/your_support_username)
-- Email: support@example.com
-- Issues: [GitHub Issues](https://github.com/yourusername/time-capsule-bot/issues)
+***
+
+## 📄 License
+
+This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) file for details.
+
+***
 
 ## 🙏 Acknowledgments
 
 - [python-telegram-bot](https://github.com/python-telegram-bot/python-telegram-bot) - Telegram Bot API wrapper
+- [Cryptography](https://cryptography.io/) - Encryption library
 - [SQLAlchemy](https://www.sqlalchemy.org/) - Database ORM
 - [APScheduler](https://apscheduler.readthedocs.io/) - Task scheduling
-- [Cryptography](https://cryptography.io/) - Encryption library
-- [Yandex Cloud](https://cloud.yandex.com/) - Object Storage
 
-## 📈 Roadmap
+***
 
-- [ ] Group time capsules with multiple recipients
-- [ ] Video/audio preview before delivery
-- [ ] Recurring capsules (daily/weekly/monthly)
-- [ ] Capsule templates
-- [ ] Statistics dashboard
-- [ ] Web interface for management
-- [ ] Export capsule history
-- [ ] Multi-file capsules
+## 📞 Support
 
----
+- **Issues**: [GitHub Issues](https://github.com/f2re/Digital-Time-Capsule/issues)
 
-Made with ❤️ by [Your Name](https://github.com/f2re)
+***
 
-⭐ Star this repo if you find it useful!
+## 🚀 Roadmap
+
+- [ ] **Web Dashboard**: View capsules via web interface
+- [ ] **Mobile App**: Native iOS/Android apps
+- [ ] **Group Features**: Group time capsules with shared access
+- [ ] **Advanced Scheduling**: Recurring capsules
+- [ ] **Analytics**: Detailed usage statistics for users
+- [ ] **Multi-language**: Add more languages (German, Spanish, French)
+- [ ] **API**: Public API for third-party integrations
+
+***
+
+**Made with ❤️ by the Digital Time Capsule Team**
+
+**⭐ Star this repo if you find it useful!**
