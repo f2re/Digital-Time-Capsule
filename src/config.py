@@ -102,6 +102,7 @@ PREMIUM_YEAR_STARS = PREMIUM_YEAR_STARS
 
 # Capsule limits (free users need to buy, premium get included)
 FREE_CAPSULE_LIMIT = 0  # Free users must purchase capsules
+FREE_STARTER_CAPSULES = 3
 PREMIUM_CAPSULE_LIMIT = 999999  # Effectively unlimited
 
 # Supported content types

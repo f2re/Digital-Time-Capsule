@@ -66,6 +66,19 @@ TRANSLATIONS = {
         'delivery_title': '🎁 Капсула времени!',
         'delivery_text': 'Вы получили капсулу времени!\n\nСоздана: {created}\nОт: {sender}',
         'error_occurred': '❌ Произошла ошибка. Попробуйте позже.',
+        'please_start_bot': 'Пожалуйста, используйте /start для начала работы с ботом',
+        'error_creating_user': '❌ Ошибка создания пользователя. Попробуйте снова.',
+        'error_setting_language': '❌ Ошибка установки языка. Пожалуйста, попробуйте /start снова.',
+
+        # Payment errors
+        'user_not_found_payment': '❌ Пользователь не найден. Пожалуйста, используйте /start',
+        'payment_error_contact_support': '💳 Платёж получен, но произошла ошибка. Пожалуйста, свяжитесь с поддержкой с ID платежа: {payment_id}',
+        'user_not_found_precheckout': 'Пользователь не найден. Пожалуйста, запустите бота командой /start',
+        'invalid_payment_request': 'Некорректный запрос платежа.',
+        'unknown_payment_type': 'Неизвестный тип платежа.',
+        'payment_amount_mismatch': 'Несоответствие суммы платежа.',
+        'payment_error_try_again': 'Произошла ошибка. Пожалуйста, попробуйте снова.',
+        'user_not_found_after_payment': '❌ Пользователь не найден. Пожалуйста, свяжитесь с поддержкой.',
         'file_too_large': '❌ Файл слишком большой!\n\nМаксимальный размер:\n• Бесплатно: 10 МБ на все капсулы\n• Премиум: 1 ГБ на все капсулы',
         'select_recipient_enhanced': '👤 Кому отправить капсулу?',
         'recipient_user_list': '📋 Выбрать из списка',
@@ -79,7 +92,25 @@ TRANSLATIONS = {
         'back_to_menu': '🏠 В главное меню',
         'stats': 'Статистика',
         'user_stats': '📊 **Ваша статистика**\n\n📦 Всего капсул: **{capsules_total}**\n⏳ Активных: **{capsules_active}**\n💾 Хранилище: **{storage_used} МБ / {storage_max} МБ**\n💎 Подписка: **{subscription}**',
-        'start_welcome_full':'🚀🕰 Добро пожаловать в Digital Time Capsule!\n\nВаш личный сервис для отправки сообщений в будущее. Безопасно. Зашифровано. Надежно.\n\n🔧 Технологии:\n• 🔐 Шифрование Fernet — военный уровень защиты\n• ☁️ Облачное хранилище Yandex S3 — ваши данные в безопасности\n• ⏰ Автоматическая доставка — точность до минуты\n• 🌍 Двуязычный интерфейс — русский и английский\n📊 Тарифы:\n• FREE: 3 капсулы, 10 МБ, до 1 года\n• PREMIUM: безлимит капсул, 1 ГБ, до 25 лет\n\n💎 Премиум от 20 звезд Telegram — цифровые платежи прямо в боте!\n\n⚡ Создайте первую капсулу за 30 секунд!',
+        'start_welcome_full':'''🎉 Добро пожаловать в Digital Time Capsule!
+
+Ваш личный сервис для отправки сообщений в будущее. Безопасно. Зашифровано. Надежно.
+
+🎁 <b>Бонус для новых пользователей:</b>
+✨ Вы получили <b>3 бесплатные капсулы</b> для знакомства с сервисом!
+
+🔧 <b>Технологии:</b>
+• 🔐 Шифрование Fernet — военный уровень защиты
+• ☁️ Облачное хранилище Yandex S3 — ваши данные в безопасности
+• 🎯 Автоматическая доставка — точность до минуты
+
+💎 <b>Тарифы:</b>
+• FREE: 3 капсулы, 10 МБ, до 1 года
+• PREMIUM: безлимит капсул, 1 ГБ, до 25 лет
+
+💰 <b>Премиум от 20 звезд Telegram</b> — цифровые платежи прямо в боте!
+
+⚡️ <b>Создайте первую капсулу за 30 секунд!</b>''',
         'buy_single_capsule': '💎 Купить 1 капсулу - {stars}⭐',
         'buy_pack_3': '📦 3 капсулы - {stars}⭐ (скидка {discount}%)',
         'buy_pack_10': '📦 10 капсул - {stars}⭐ (скидка {discount}%)',
@@ -131,7 +162,48 @@ TRANSLATIONS = {
 • Технические проблемы: возврат в течение 24ч
 • Неиспользованные капсулы: пропорциональный возврат
 
-⏱ Время ответа: до 24 часов'''
+⏱ Время ответа: до 24 часов''',
+        'username_not_supported': '❌ Пока не поддерживается отправка по username',
+        'use_forward_message': '💡 Используйте числовой ID пользователя или попросите его начать диалог с ботом',
+        'cannot_resolve_username': '❌ Не удалось найти пользователя по username',
+        'invalid_recipient_id': '❌ Неверный формат ID получателя. Введите числовой ID',
+        # Capsule activation
+        'capsule_created_with_link': '✅ Капсула создана!\n\n'
+                                    '⏰ Доставка: {time}\n'
+                                    '👤 Получатель: {username}\n\n'
+                                    '💡 Отправьте эту ссылку получателю:\n'
+                                    '{invite_link}\n\n'
+                                    'Капсула активируется когда получатель запустит бота по ссылке.',
+        'capsule_activated_success': '🎉 Капсула активирована!\n\nВы получите её {delivery_time}\n\n💌 Отправитель: {sender_name}',
+        'capsule_already_activated': '⚠️ Эта капсула уже активирована или доставлена',
+        'capsule_not_found': '❌ Капсула не найдена или срок действия ссылки истёк',
+        'pending_capsules': '📬 У вас {count} ожидающих капсул',
+
+        # Group delivery
+        'capsule_for_group_created': '✅ Капсула для группы создана!\n\n👥 Группа: {group_name}\n⏰ Доставка: {delivery_time}\n\n💡 Убедитесь, что бот добавлен в группу как участник.',
+        'group_delivery_success': '📦 **Капсула доставлена!**\n\n💌 От: {sender_name}\n⏰ Создано: {created_at}\n\n{content}',
+        'group_not_member': '❌ Бот не является участником группы.\nДобавьте бота в группу для доставки капсул.',
+
+        # Delivery notifications
+        'delivery_pending_notification': '⚠️ Капсула ожидает активации!\n\nПолучатель ещё не активировал капсулу.\nОтправьте ему эту ссылку:\n<code>{invite_link}</code>',
+        'delivery_failed_blocked': '❌ Не удалось доставить капсулу\n\nПолучатель заблокировал бота.\nВы можете переслать содержимое вручную:',
+
+        # Instructions
+        'how_to_send_to_user': '👤 <b>Как отправить капсулу пользователю:</b>\n\n1️⃣ Создайте капсулу\n2️⃣ Скопируйте ссылку-приглашение\n3️⃣ Отправьте её получателю\n4️⃣ Получатель нажмёт на ссылку и запустит бота\n5️⃣ Капсула автоматически доставится в назначенное время',
+        'how_to_send_to_group': '👥 <b>Как отправить капсулу в группу:</b>\n\n1️⃣ Добавьте бота в группу\n2️⃣ Узнайте ID группы (обычно начинается с -100)\n3️⃣ Создайте капсулу и укажите ID группы\n4️⃣ Капсула будет автоматически отправлена в группу в назначенное время',
+        'username_capsule_info': '✅ Капсула будет отправлена пользователю {username}\n\n'
+                                 '💡 Капсула активируется автоматически, когда получатель '
+                                 'запустит бота.\n\n'
+                                 '⏰ Доставка произойдёт в назначенное время после активации.',
+
+        'capsules_activated_for_you': '🎉 Для вас активировано капсул: {count}!\n\n'
+                                      'Они будут доставлены в назначенное время.',
+
+        'enter_userid_instruction': '👤 Введите получателя:\n\n'
+                                   '• @username (например: @username)\n'
+                                   '• Числовой ID (например: 123456789)\n\n'
+                                   '💡 При использовании @username капсула активируется '
+                                   'когда получатель запустит бота.',
     },
     'en': {
         'select_language': '🌐 Выберите язык / Select language:',
@@ -198,6 +270,19 @@ TRANSLATIONS = {
         'delivery_title': '🎁 Time Capsule!',
         'delivery_text': 'You received a time capsule!\n\nCreated: {created}\nFrom: {sender}',
         'error_occurred': '❌ An error occurred. Try again later.',
+        'please_start_bot': 'Please use /start to begin using the bot',
+        'error_creating_user': '❌ Error creating user. Please try again.',
+        'error_setting_language': '❌ Error setting language. Please try /start again.',
+
+        # Payment errors
+        'user_not_found_payment': '❌ User not found. Please use /start',
+        'payment_error_contact_support': '💳 Payment received but there was an error. Please contact support with payment ID: {payment_id}',
+        'user_not_found_precheckout': 'User not found. Please start the bot with /start first.',
+        'invalid_payment_request': 'Invalid payment request.',
+        'unknown_payment_type': 'Unknown payment type.',
+        'payment_amount_mismatch': 'Payment amount mismatch.',
+        'payment_error_try_again': 'An error occurred. Please try again.',
+        'user_not_found_after_payment': '❌ User not found. Please contact support.',
         'file_too_large': '❌ File is too large!\n\nMax size:\n• Free: 10 MB for all capsules\n• Premium: 1 GB for all capsules',
         'select_recipient_enhanced': '👤 Who will receive the capsule?',
         'recipient_user_list': '📋 Choose from list',
@@ -211,7 +296,25 @@ TRANSLATIONS = {
         'back_to_menu': '🏠 Back to menu',
         'stats': 'Statistics',
         'user_stats': '📊 **Your Statistics**\n\n📦 Total capsules: **{capsules_total}**\n⏳ Active: **{capsules_active}**\n💾 Storage: **{storage_used} MB / {storage_max} MB**\n💎 Subscription: **{subscription}**',
-        'start_welcome_full':'🚀🕰 Welcome to Digital Time Capsule!\n\nYour personal service for sending messages to the future. Secure. Encrypted. Reliable.\n\n🔧 Technology:\n• 🔐 Fernet encryption — military-grade security\n• ☁️ Yandex S3 cloud storage — your data is safe\n• ⏰ Automatic delivery — accurate to the minute\n• 🌍 Bilingual interface — Russian and English\n\n📊 Plans:\n• FREE: 3 capsules, 10 MB, up to 1 year\n• PREMIUM: unlimited capsules, 1 GB, up to 25 years\n\n💎 Premium from 20 Telegram Stars — digital payments right in the bot!\n\n⚡ Create your first capsule in 30 seconds!',
+        'start_welcome_full':'''🎉 Welcome to Digital Time Capsule!
+
+Your personal service for sending messages to the future. Securely. Encrypted. Reliable.
+
+🎁 <b>New User Bonus:</b>
+✨ You've received <b>3 free capsules</b> to try our service!
+
+🔧 <b>Technology:</b>
+• 🔐 Fernet Encryption — military-grade security
+• ☁️ Yandex S3 Cloud Storage — your data is safe
+• 🎯 Automatic Delivery — accurate to the minute
+
+💎 <b>Plans:</b>
+• FREE: 3 capsules, 10 MB, up to 1 year
+• PREMIUM: unlimited capsules, 1 GB, up to 25 years
+
+💰 <b>Premium from 20 Telegram Stars</b> — digital payments directly in the bot!
+
+⚡️ <b>Create your first capsule in 30 seconds!</b>''',
         'buy_single_capsule': '💎 Buy 1 capsule - {stars}⭐',
         'buy_pack_3': '📦 3 capsules - {stars}⭐ ({discount}% off)',
         'buy_pack_10': '📦 10 capsules - {stars}⭐ ({discount}% off)',
@@ -263,7 +366,48 @@ If you have payment issues:
 • Technical issues: refund within 24h
 • Unused capsules: prorated refund
 
-⏱ Response time: within 24 hours'''
+⏱ Response time: within 24 hours''',
+        'username_not_supported': '❌ Sending by username is not supported yet',
+        'use_forward_message': '💡 Use numeric user ID or ask them to start a chat with the bot',
+        'cannot_resolve_username': '❌ Cannot resolve username to user ID',
+        'invalid_recipient_id': '❌ Invalid recipient ID format. Enter numeric ID',
+        # Capsule activation
+        'capsule_created_with_link': '✅ Capsule created!\n\n'
+                                    '⏰ Delivery: {time}\n'
+                                    '👤 Recipient: {username}\n\n'
+                                    '💡 Send this link to the recipient:\n'
+                                    '{invite_link}\n\n'
+                                    'The capsule will activate when recipient starts the bot.',
+        'capsule_activated_success': '🎉 Capsule activated!\n\nYou will receive it on {delivery_time}\n\n💌 Sender: {sender_name}',
+        'capsule_already_activated': '⚠️ This capsule is already activated or delivered',
+        'capsule_not_found': '❌ Capsule not found or invitation link expired',
+        'pending_capsules': '📬 You have {count} pending capsules',
+
+        # Group delivery
+        'capsule_for_group_created': '✅ Capsule for group created!\n\n👥 Group: {group_name}\n⏰ Delivery: {delivery_time}\n\n💡 Make sure the bot is added to the group as a member.',
+        'group_delivery_success': '📦 **Time Capsule Delivered!**\n\n💌 From: {sender_name}\n⏰ Created: {created_at}\n\n{content}',
+        'group_not_member': '❌ Bot is not a member of the group.\nAdd the bot to the group to receive capsules.',
+
+        # Delivery notifications
+        'delivery_pending_notification': '⚠️ Capsule awaiting activation!\n\nRecipient hasn\'t activated the capsule yet.\nSend them this link:\n<code>{invite_link}</code>',
+        'delivery_failed_blocked': '❌ Failed to deliver capsule\n\nRecipient has blocked the bot.\nYou can forward the content manually:',
+
+        # Instructions
+        'how_to_send_to_user': '👤 <b>How to send capsule to a user:</b>\n\n1️⃣ Create a capsule\n2️⃣ Copy the invitation link\n3️⃣ Send it to the recipient\n4️⃣ Recipient clicks the link and starts the bot\n5️⃣ Capsule will be automatically delivered at scheduled time',
+        'how_to_send_to_group': '👥 <b>How to send capsule to a group:</b>\n\n1️⃣ Add the bot to the group\n2️⃣ Get the group ID (usually starts with -100)\n3️⃣ Create a capsule and enter the group ID\n4️⃣ Capsule will be automatically sent to the group at scheduled time',
+        'username_capsule_info': '✅ Capsule will be sent to {username}\n\n'
+                                '💡 The capsule will activate automatically when the '
+                                'recipient starts the bot.\n\n'
+                                '⏰ Delivery will occur at the scheduled time after activation.',
+
+        'capsules_activated_for_you': '🎉 {count} capsule(s) activated for you!\n\n'
+                                      'They will be delivered at the scheduled time.',
+
+        'enter_userid_instruction': '👤 Enter recipient:\n\n'
+                                   '• @username (example: @john)\n'
+                                   '• Numeric ID (example: 123456789)\n\n'
+                                   '💡 When using @username, capsule activates '
+                                   'when recipient starts the bot.',
         }
 }
 

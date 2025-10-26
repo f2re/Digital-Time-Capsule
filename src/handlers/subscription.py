@@ -18,6 +18,7 @@ from ..config import (
 )
 from sqlalchemy import insert, update
 
+
 async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show subscription information with new payment options"""
     query = update.callback_query
@@ -25,37 +26,61 @@ async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await query.answer()
 
     user = update.effective_user
-    userdata = get_user_data(user.id)
+    user_data = get_user_data(user.id)  #
 
-    if not userdata:
+    if not user_data:
         logger.error(f"User data not found for {user.id}")
+        lang = 'en'  # default
+        if query:
+            await query.edit_message_text(t(lang, 'user_not_found_payment'))
         return SELECTING_ACTION
 
-    lang = userdata['language_code']
-    is_premium = userdata['subscription_status'] == PREMIUM_TIER
-    capsule_balance = userdata.get('capsule_balance', 0)
+    lang = user_data['language_code']
+    is_premium = user_data['subscription_status'] == PREMIUM_TIER
+    capsule_balance = user_data.get('capsule_balance', 0)
 
-    # Build subscription info
+    # Build subscription info based on tier
     if is_premium:
-        used_mb = userdata['total_storage_used'] / 1024 / 1024
+        used_mb = user_data['total_storage_used'] / 1024 / 1024
         total_mb = PREMIUM_STORAGE_LIMIT / 1024 / 1024
-        expires = userdata['subscription_expires'].strftime("%d.%m.%Y") if userdata['subscription_expires'] else "Never"
+        expires = user_data['subscription_expires'].strftime("%d.%m.%Y") if user_data['subscription_expires'] else "Never"
+
+        subscription_type_display = "💎 PREMIUM"
+        storage_used_mb = f"{used_mb:.1f}"
+        storage_limit_mb = f"{total_mb:.0f}"
+
         details = t(lang, "premium_subscription_details",
                    capsules=capsule_balance,
                    used=f"{used_mb:.1f} MB",
                    total=f"{total_mb:.0f} MB",
                    expires=expires)
     else:
-        used_mb = userdata['total_storage_used'] / 1024 / 1024
+        used_mb = user_data['total_storage_used'] / 1024 / 1024
         total_mb = FREE_STORAGE_LIMIT / 1024 / 1024
+
+        subscription_type_display = "🆓 FREE"
+        storage_used_mb = f"{used_mb:.1f}"
+        storage_limit_mb = f"{total_mb:.0f}"
+
         details = t(lang, "free_subscription_details",
                    capsules=capsule_balance,
                    used=f"{used_mb:.1f} MB",
                    total=f"{total_mb:.0f} MB")
 
+    # Main info text
     info_text = t(lang, "subscription_info",
-                 tier="PREMIUM ⭐" if is_premium else "FREE",
+                 tier=subscription_type_display,
                  details=details)
+
+    # Add starter capsule bonus message if applicable
+    if user_data['capsule_balance'] <= 3 and user_data.get('capsule_count', 0) == 0:
+        # User still has starter capsules and hasn't used any
+        if lang == 'ru':
+            info_text += f"\n\n🎁 <b>Стартовый бонус:</b>\n"
+            info_text += f"У вас {user_data['capsule_balance']} бесплатные капсулы для знакомства с сервисом!"
+        else:
+            info_text += f"\n\n🎁 <b>Starter Bonus:</b>\n"
+            info_text += f"You have {user_data['capsule_balance']} free capsules to try our service!"
 
     # Build keyboard
     keyboard = []
@@ -66,7 +91,7 @@ async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         callback_data="buy_capsule_single"
     )])
 
-    # Capsule packs
+    # Capsule packs (2 per row)
     pack_row = []
     for pack_key, pack_data in CAPSULE_PACKS.items():
         if len(pack_row) == 2:
@@ -80,7 +105,7 @@ async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     if pack_row:
         keyboard.append(pack_row)
 
-    # Premium subscriptions
+    # Premium subscriptions (only if not already premium)
     if not is_premium:
         keyboard.append([InlineKeyboardButton(
             t(lang, "buy_premium_month", stars=PREMIUM_MONTH_STARS,
@@ -100,28 +125,33 @@ async def show_subscription(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         try:
             await query.edit_message_text(
                 info_text,
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'  # ADDED: Needed for bold formatting
             )
         except:
             try:
                 await query.edit_message_caption(
                     caption=info_text,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='HTML'
                 )
             except:
                 await query.message.reply_text(
                     info_text,
-                    reply_markup=InlineKeyboardMarkup(keyboard)
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='HTML'
                 )
     else:
         message = update.message or update.effective_message
         if message:
             await message.reply_text(
                 info_text,
-                reply_markup=InlineKeyboardMarkup(keyboard)
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'
             )
 
     return MANAGING_SUBSCRIPTION
+
 
 async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle payment button clicks and send invoice"""
@@ -230,6 +260,7 @@ async def handle_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     return MANAGING_SUBSCRIPTION
 
+
 async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Answer pre-checkout query"""
     query = update.pre_checkout_query
@@ -287,6 +318,7 @@ async def precheckout_callback(update: Update, context: ContextTypes.DEFAULT_TYP
             ok=False,
             error_message="An error occurred. Please try again."
         )
+
 
 async def successful_payment_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle successful payment"""
@@ -380,6 +412,7 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
             payment.telegram_payment_charge_id
         )
 
+
 async def paysupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle /paysupport command"""
     user = update.effective_user
@@ -394,6 +427,7 @@ async def paysupport_command(update: Update, context: ContextTypes.DEFAULT_TYPE)
             InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')
         ]])
     )
+
 
 async def refund_payment(telegram_payment_charge_id: str, user_id: int, bot) -> bool:
     """Refund a Stars payment"""

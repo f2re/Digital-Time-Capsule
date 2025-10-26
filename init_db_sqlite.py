@@ -55,6 +55,7 @@ capsules = Table('capsules', metadata,
     Column('created_at', DateTime, default=datetime.utcnow),
     Column('delivered', Boolean, default=False),
     Column('delivered_at', DateTime, nullable=True),
+    Column('recipient_username', String(255), nullable=True),
     Column('message', Text, nullable=True)
 )
 

@@ -35,16 +35,18 @@ capsules = Table('capsules', metadata,
     Column('capsule_uuid', String(36), unique=True, nullable=False, index=True),
     Column('content_type', String(50), nullable=False),
     Column('content_text', Text, nullable=True),
-    Column('file_key', LargeBinary, nullable=True),  # Encrypted file key
+    Column('file_key', LargeBinary, nullable=True),
     Column('s3_key', String(500), nullable=True),
     Column('file_size', BigInteger, default=0),
-    Column('recipient_type', String(50), nullable=False),  # 'self', 'user', 'group'
+    Column('recipient_type', String(50), nullable=False),
     Column('recipient_id', BigInteger, nullable=True),
+    Column('recipient_username', String(255), nullable=True),
     Column('delivery_time', DateTime, nullable=False),
     Column('created_at', DateTime, default=datetime.utcnow),
     Column('delivered', Boolean, default=False),
     Column('delivered_at', DateTime, nullable=True),
-    Column('message', Text, nullable=True)  # Optional message with the capsule
+    Column('activated_at', DateTime, nullable=True),
+    Column('message', Text, nullable=True)
 )
 
 # Payments table
@@ -77,6 +79,8 @@ def init_db():
     metadata.create_all(engine)
     logger.info("Database tables initialized")
 
+# src/database.py
+
 def get_or_create_user(telegram_user: User) -> Optional[int]:
     """Get or create user in database, return user ID"""
     try:
@@ -89,20 +93,29 @@ def get_or_create_user(telegram_user: User) -> Optional[int]:
             if result:
                 return result[0]
 
-            # Create new user
+            # Create new user with 3 starter capsules
+            from .config import FREE_STARTER_CAPSULES  # Import at function level to avoid circular imports
+
             result = conn.execute(
                 insert(users).values(
                     telegram_id=telegram_user.id,
                     username=telegram_user.username,
                     first_name=telegram_user.first_name,
-                    language_code=telegram_user.language_code or 'en'
+                    language_code=telegram_user.language_code or 'en',
+                    capsule_balance=FREE_STARTER_CAPSULES  # Give 3 free capsules!
                 )
             )
             conn.commit()
-            return result.inserted_primary_key[0]
+
+            user_id = result.inserted_primary_key[0]
+            logger.info(f"✅ New user {telegram_user.id} created with {FREE_STARTER_CAPSULES} starter capsules")
+
+            return user_id
+
     except Exception as e:
         logger.error(f"Error in get_or_create_user: {e}")
         return None
+
 
 def get_user_data(telegram_id: int) -> Optional[Dict]:
     """Get user data from database"""
@@ -348,8 +361,13 @@ def delete_capsule_and_update_user(capsule_id: int, user_id: int) -> tuple[bool,
         logger.error(f"Error deleting capsule and updating user: {e}")
         return False, 0
 
+# Add to database.py
+
 def create_capsule(user_id: int, capsule_data: Dict) -> Optional[int]:
-    """Create a new capsule and return its ID"""
+    """
+    Create a new capsule and return its ID
+    NOW SUPPORTS: recipient_username for @username delivery
+    """
     try:
         with engine.connect() as conn:
             result = conn.execute(
@@ -362,13 +380,13 @@ def create_capsule(user_id: int, capsule_data: Dict) -> Optional[int]:
                     s3_key=capsule_data.get('s3_key'),
                     file_size=capsule_data.get('file_size', 0),
                     recipient_type=capsule_data['recipient_type'],
-                    recipient_id=capsule_data.get('recipient_id'),
+                    recipient_id=capsule_data.get('recipient_id'),  # Can be NULL for usernames
+                    recipient_username=capsule_data.get('recipient_username'),  # NEW!
                     delivery_time=capsule_data['delivery_time'],
                     message=capsule_data.get('message')
                 )
             )
             conn.commit()
-
             capsule_id = result.inserted_primary_key[0]
 
             # Update user statistics
@@ -384,10 +402,74 @@ def create_capsule(user_id: int, capsule_data: Dict) -> Optional[int]:
             conn.commit()
 
             return capsule_id
-
     except Exception as e:
         logger.error(f"Error creating capsule: {e}")
         return None
+
+
+def check_and_activate_username_capsules(telegram_id: int, username: str) -> int:
+    """
+    Check if any capsules are waiting for this username and activate them
+    Called when user starts the bot
+    Returns: Number of capsules activated
+    """
+    if not username:
+        return 0
+
+    try:
+        with engine.connect() as conn:
+            # Find all pending capsules for this username
+            result = conn.execute(
+                select(capsules.c.id, capsules.c.capsule_uuid, capsules.c.delivery_time)
+                .where(capsules.c.recipient_username == username.lower())
+                .where(capsules.c.recipient_id == None)  # Not yet activated
+                .where(capsules.c.delivered == False)
+            ).fetchall()
+
+            if not result:
+                return 0
+
+            activated_count = 0
+            for row in result:
+                capsule_id, capsule_uuid, delivery_time = row
+
+                # Activate the capsule
+                conn.execute(
+                    sqlalchemy_update(capsules)
+                    .where(capsules.c.id == capsule_id)
+                    .values(
+                        recipient_id=telegram_id,
+                        activated_at=datetime.utcnow()
+                    )
+                )
+                activated_count += 1
+
+                logger.info(f"✓ Capsule {capsule_uuid} activated for @{username} (telegram_id: {telegram_id})")
+
+            conn.commit()
+            return activated_count
+
+    except Exception as e:
+        logger.error(f"Error checking username capsules: {e}")
+        return 0
+
+
+def get_pending_capsules_by_username(username: str) -> list:
+    """Get capsules waiting for a specific username to activate"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules)
+                .where(capsules.c.recipient_username == username.lower())
+                .where(capsules.c.recipient_id == None)
+                .where(capsules.c.delivered == False)
+            ).fetchall()
+
+            return [dict(row._mapping) for row in result]
+    except Exception as e:
+        logger.error(f"Error getting pending capsules by username: {e}")
+        return []
+
 
 def update_subscription(user_id: int, subscription_type: str, expires_at: Optional[datetime] = None) -> bool:
     """Update user's subscription status"""
@@ -539,3 +621,97 @@ def debug_user_balance(telegram_id: int):
     except Exception as e:
         logger.error(f"DEBUG Error: {e}")
         return None
+
+# src/database.py
+
+def get_pending_capsules_for_user(user_telegram_id: int):
+    """Get all activated capsules waiting for delivery to this user"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules)
+                .where(capsules.c.recipient_id == str(user_telegram_id))
+                .where(capsules.c.delivered == False)
+            ).fetchall()
+
+            return [dict(row._mapping) for row in result]
+
+    except Exception as e:
+        logger.error(f"Error fetching pending capsules: {e}")
+        return []
+
+
+def activate_capsule_for_recipient(capsule_uuid: str, recipient_telegram_id: int) -> bool:
+    """
+    Activate capsule when recipient starts bot via deep link.
+    Delivery time remains as originally scheduled.
+    """
+    try:
+        with engine.connect() as conn:
+            # Check if capsule exists
+            result = conn.execute(
+                select(capsules.c.id, capsules.c.user_id, capsules.c.delivery_time)
+                .where(capsules.c.capsule_uuid == capsule_uuid)
+                .where(capsules.c.delivered == False)
+            ).first()
+
+            if not result:
+                logger.warning(f"Capsule {capsule_uuid} not found")
+                return False
+
+            capsule_id, sender_id, delivery_time = result
+
+            # Update capsule with recipient's telegram ID and mark as activated
+            conn.execute(
+                sqlalchemy_update(capsules)
+                .where(capsules.c.capsule_uuid == capsule_uuid)
+                .values(
+                    recipient_id=str(recipient_telegram_id),
+                    activated_at=datetime.utcnow(),
+                    message='Activated by recipient'
+                )
+            )
+            conn.commit()
+
+            logger.info(f"✅ Capsule {capsule_uuid} activated by user {recipient_telegram_id}")
+            logger.info(f"   Will deliver at: {delivery_time}")
+
+            return True
+
+    except Exception as e:
+        logger.error(f"Error activating capsule: {e}")
+        return False
+
+
+def get_user_by_internal_id(internal_id: int):
+    """Get user data by internal database ID (not telegram_id)"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(users).where(users.c.id == internal_id)
+            ).first()
+
+            if result:
+                return dict(result._mapping)
+            return None
+
+    except Exception as e:
+        logger.error(f"Error getting user by internal ID: {e}")
+        return None
+
+
+def refund_capsule_to_balance(user_id: int) -> bool:
+    """Refund one capsule to user's balance (for failed transactions)"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(capsule_balance=users.c.capsule_balance + 1)
+            )
+            conn.commit()
+            logger.info(f"✅ Refunded 1 capsule to user {user_id} balance")
+            return True
+    except Exception as e:
+        logger.error(f"Error refunding capsule: {e}")
+        return False

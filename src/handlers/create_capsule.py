@@ -16,8 +16,6 @@ from ..database import get_user_data, check_user_quota, users, capsules, engine
 from ..s3_utils import encrypt_and_upload_file
 from ..translations import t
 
-# Around line 30-50 in start_create_capsule function:
-
 async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Start capsule creation flow"""
     from ..database import debug_user_balance
@@ -121,6 +119,12 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
         logger.error(f"Error in start_create_capsule: {e}")
 
     return SELECTING_CONTENT_TYPE
+
+def generate_capsule_invite_link(bot_username: str, capsule_uuid: str) -> str:
+    """Generate deep link for capsule activation"""
+    # Encode capsule UUID as base64 for clean URL
+    encoded_uuid = base64.urlsafe_b64encode(capsule_uuid.encode()).decode().rstrip('=')
+    return f"https://t.me/{bot_username}?start=c_{encoded_uuid}"
 
 
 async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -406,16 +410,16 @@ async def show_recipient_selection(update: Update, context: ContextTypes.DEFAULT
     return SELECTING_RECIPIENT
 
 async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle recipient selection"""
+    """Handle recipient selection - NOW SUPPORTS @username"""
     query = update.callback_query
     message = update.message
-
     user = update.effective_user
-    user_data = get_user_data(user.id)
-    if not user_data:
+
+    userdata = get_user_data(user.id)
+    if not userdata:
         return SELECTING_ACTION
 
-    lang = user_data['language_code']
+    lang = userdata['language_code']
 
     if query:
         await query.answer()
@@ -427,11 +431,11 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             logger.info(f"Recipient set to self for user {user.id}")
             return await show_confirmation(update, context)
 
-        elif recipient_type in ['user', 'group']:
+        elif recipient_type in ('user', 'group'):
             context.user_data['capsule']['recipient_type'] = recipient_type
             context.user_data['waiting_for_recipient'] = True
 
-            instruction_key = 'enter_user_id_instruction' if recipient_type == 'user' else 'enter_group_id_instruction'
+            instruction_key = 'enter_userid_instruction' if recipient_type == 'user' else 'enter_groupid_instruction'
 
             await query.edit_message_text(
                 t(lang, instruction_key),
@@ -446,42 +450,59 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             recipient_input = message.text.strip()
             recipient_type = context.user_data['capsule']['recipient_type']
 
-            # Parse recipient ID based on type
+            # For groups
             if recipient_type == 'group':
                 if not recipient_input.startswith('-') and recipient_input.isdigit():
                     recipient_input = '-' + recipient_input
                 recipient_id = recipient_input
-            else:  # user
+
+            # For users
+            elif recipient_type == 'user':
                 if recipient_input.startswith('@'):
-                    recipient_input = recipient_input[1:]
+                    # USERNAME PROVIDED - Store it for later activation!
+                    username = recipient_input[1:].lower()  # Remove @ and lowercase
 
-                if recipient_input.isdigit():
+                    context.user_data['capsule']['recipient_username'] = username
+                    context.user_data['capsule']['recipient_id'] = None  # Will be set on activation
+                    context.user_data.pop('waiting_for_recipient', None)
+
+                    # Inform user about username-based delivery
+                    await message.reply_text(
+                        t(lang, 'username_capsule_info', username=f"@{username}")
+                    )
+
+                    logger.info(f"Capsule for @{username} - will activate when they start bot")
+                    return await show_confirmation(update, context)
+
+                elif recipient_input.isdigit():
+                    # NUMERIC ID PROVIDED
                     recipient_id = int(recipient_input)
+                    context.user_data['capsule']['recipient_id'] = recipient_id
                 else:
-                    recipient_id = '@' + recipient_input
+                    # Invalid format
+                    await message.reply_text(t(lang, 'invalid_recipient_id'))
+                    return SELECTING_RECIPIENT
 
-            context.user_data['capsule']['recipient_id'] = recipient_id
             context.user_data.pop('waiting_for_recipient', None)
+            logger.info(f"Recipient set: {recipient_type} - {recipient_input}")
 
-            logger.info(f"Recipient set: {recipient_type} -> {recipient_id}")
             return await show_confirmation(update, context)
 
         except Exception as e:
-            logger.error(f"Error parsing recipient ID: {e}")
+            logger.error(f"Error parsing recipient: {e}")
             await message.reply_text(t(lang, 'invalid_recipient_id'))
             return SELECTING_RECIPIENT
 
-    return SELECTING_RECIPIENT
 
 async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Show capsule confirmation"""
     user = update.effective_user
     user_data = get_user_data(user.id)
+
     if not user_data:
         return SELECTING_ACTION
 
     lang = user_data['language_code']
-
     capsule = context.user_data.get('capsule', {})
 
     if not capsule or 'delivery_time' not in capsule:
@@ -489,12 +510,20 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.effective_message.reply_text(t(lang, "error_occurred"))
         return SELECTING_ACTION
 
-    # Format recipient
+    # Format recipient display
     recipient_text = ""
-    if capsule['recipient_type'] == "self":
+    recipient_type = capsule['recipient_type']
+
+    if recipient_type == "self":
         recipient_text = t(lang, "recipient_self")
-    else:
-        recipient_text = f"{capsule['recipient_type']}: {capsule.get('recipient_id', 'Unknown')}"
+    elif recipient_type == "user":
+        # Check if username or ID
+        if capsule.get('recipient_username'):
+            recipient_text = f"@{capsule['recipient_username']}"
+        else:
+            recipient_text = f"User ID: {capsule.get('recipient_id', 'Unknown')}"
+    elif recipient_type == "group":
+        recipient_text = f"Group: {capsule.get('recipient_id', 'Unknown')}"
 
     # Format time
     time_text = capsule['delivery_time'].strftime("%d.%m.%Y %H:%M")
@@ -511,17 +540,22 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     try:
         if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(confirmation_text, reply_markup=InlineKeyboardMarkup(keyboard))
+            await update.callback_query.edit_message_text(
+                confirmation_text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
         else:
-            await update.effective_message.reply_text(confirmation_text, reply_markup=InlineKeyboardMarkup(keyboard))
+            await update.effective_message.reply_text(
+                confirmation_text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
     except Exception as e:
         logger.error(f"Error in show_confirmation: {e}")
 
     return CONFIRMING_CAPSULE
 
-
 async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Create the capsule in database"""
+    """Create the capsule in database with proper transaction handling"""
     query = update.callback_query
     if not query:
         return CONFIRMING_CAPSULE
@@ -541,89 +575,146 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         await query.edit_message_text(t(lang, 'error_occurred'))
         return SELECTING_ACTION
 
+    # Generate UUID for capsule
+    capsule_uuid = str(uuid.uuid4())
+
+    # Prepare recipient data
+    recipient_id_value = capsule_data.get('recipient_id')
+    recipient_username_value = capsule_data.get('recipient_username')
+    recipient_type = capsule_data['recipient_type']
+
+    # Determine if this capsule needs activation
+    needs_activation = False
+
+    if recipient_type == 'user' and recipient_username_value:
+        # Username-based capsule - needs activation
+        recipient_id_value = None
+        needs_activation = True
+    elif recipient_type == 'user' and recipient_id_value:
+        # Numeric ID provided - no activation needed
+        needs_activation = False
+    elif recipient_type == 'group':
+        # Groups don't need activation
+        recipient_id_value = str(recipient_id_value)
+        needs_activation = False
+    else:  # 'self'
+        recipient_id_value = user.id
+        needs_activation = False
+
+    # ⭐ START TRANSACTION - All or nothing!
     try:
-        from ..database import deduct_capsule_from_balance
-
-        if not deduct_capsule_from_balance(userdata['id']):
-            await query.edit_message_text(
-                t(lang, 'no_capsule_balance'),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
-                ]])
-            )
-            return SELECTING_ACTION
-
-        # Create capsule in database
         with engine.connect() as conn:
-            result = conn.execute(
-                insert(capsules).values(
-                    user_id=userdata['id'],
-                    capsule_uuid=str(uuid.uuid4()),
-                    content_type=capsule_data['content_type'],
-                    content_text=capsule_data.get('content_text'),
-                    file_key=capsule_data.get('file_key'),
-                    s3_key=capsule_data.get('s3_key'),
-                    file_size=capsule_data.get('file_size', 0),
-                    recipient_type=capsule_data['recipient_type'],
-                    recipient_id=capsule_data.get('recipient_id'),
-                    delivery_time=capsule_data['delivery_time']
-                )
-            )
+            # Begin transaction
+            trans = conn.begin()
 
-            # Update user stats
-            conn.execute(
-                sqlalchemy_update(users)
-                .where(users.c.id == userdata['id'])
-                .values(
-                    capsule_count=users.c.capsule_count + 1,
-                    total_storage_used=users.c.total_storage_used + capsule_data.get('file_size', 0)
-                )
-            )
-            conn.commit()
-            capsule_id = result.inserted_primary_key[0]
-            logger.info(f"Capsule created successfully: ID {capsule_id} for user {user.id}")
-
-            # Schedule delivery
             try:
-                scheduler = context.application.bot_data.get('scheduler')
-                if scheduler:
-                    from ..scheduler import deliver_capsule
-                    from apscheduler.triggers.date import DateTrigger
-                    scheduler.add_job(
-                        deliver_capsule,
-                        trigger=DateTrigger(run_date=capsule_data['delivery_time']),
-                        args=[context.application.bot, capsule_id],
-                        id=f"capsule_{capsule_id}",
-                        replace_existing=True
+                # 1. Check balance first
+                balance_result = conn.execute(
+                    select(users.c.capsule_balance)
+                    .where(users.c.id == userdata['id'])
+                ).first()
+
+                if not balance_result or balance_result[0] <= 0:
+                    trans.rollback()
+                    await query.edit_message_text(
+                        t(lang, 'no_capsule_balance'),
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                        ]])
                     )
-                    logger.info(f"Scheduled delivery for capsule {capsule_id}")
+                    return SELECTING_ACTION
+
+                # 2. Insert capsule
+                result = conn.execute(
+                    insert(capsules).values(
+                        user_id=userdata['id'],
+                        capsule_uuid=capsule_uuid,
+                        content_type=capsule_data['content_type'],
+                        content_text=capsule_data.get('content_text'),
+                        file_key=capsule_data.get('file_key'),
+                        s3_key=capsule_data.get('s3_key'),
+                        file_size=capsule_data.get('file_size', 0),
+                        recipient_type=recipient_type,
+                        recipient_id=recipient_id_value,
+                        recipient_username=recipient_username_value,
+                        delivery_time=capsule_data['delivery_time'],
+                        message=capsule_data.get('message')
+                    )
+                )
+                capsule_id = result.inserted_primary_key[0]
+
+                # 3. Update user stats AND deduct balance
+                conn.execute(
+                    sqlalchemy_update(users)
+                    .where(users.c.id == userdata['id'])
+                    .values(
+                        capsule_count=users.c.capsule_count + 1,
+                        total_storage_used=users.c.total_storage_used + capsule_data.get('file_size', 0),
+                        capsule_balance=users.c.capsule_balance - 1  # ⭐ Deduct here!
+                    )
+                )
+
+                # 4. Commit transaction
+                trans.commit()
+                logger.info(f"✅ Capsule {capsule_uuid} created successfully")
+
             except Exception as e:
-                logger.error(f"Error scheduling capsule delivery: {e}")
-
-        time_text = capsule_data['delivery_time'].strftime('%d.%m.%Y %H:%M')
-        success_text = t(lang, 'capsule_created', time=time_text)
-
-        await query.edit_message_text(
-            success_text,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')
-            ]])
-        )
-
-        # Clear capsule data
-        context.user_data.pop('capsule', None)
-        context.user_data.pop('waiting_for_recipient', None)
+                # Rollback on any error
+                trans.rollback()
+                logger.error(f"Error creating capsule (rolled back): {e}")
+                await query.edit_message_text(t(lang, 'error_occurred'))
+                return SELECTING_ACTION
 
     except Exception as e:
-        logger.error(f"Error creating capsule: {e}")
-        await query.edit_message_text(
-            t(lang, 'error_occurred'),
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')
-            ]])
+        logger.error(f"Database connection error: {e}")
+        await query.edit_message_text(t(lang, 'error_occurred'))
+        return SELECTING_ACTION
+
+    # Generate success message
+    delivery_time_str = capsule_data['delivery_time'].strftime("%d.%m.%Y %H:%M")
+
+    if needs_activation and recipient_username_value:
+        # Username-based capsule - generate invite link
+        bot_username = (await context.bot.get_me()).username
+        import base64
+        encoded_uuid = base64.urlsafe_b64encode(capsule_uuid.encode()).decode().rstrip('=')
+        invite_link = f"https://t.me/{bot_username}?start=c_{encoded_uuid}"
+
+        success_text = t(
+            lang,
+            'capsule_created_with_link',
+            time=delivery_time_str,
+            username=f"@{recipient_username_value}",
+            invite_link=invite_link
         )
 
+    elif recipient_type == 'group':
+        success_text = t(
+            lang,
+            'capsule_for_group_created',
+            group_name=recipient_id_value,
+            delivery_time=delivery_time_str
+        )
+
+    else:
+        # Self or numeric ID
+        success_text = t(lang, 'capsule_created', time=delivery_time_str)
+
+    keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
+
+    await query.edit_message_text(
+        success_text,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
+
+    logger.info(f"Capsule {capsule_uuid} created for {recipient_type}")
+
+    # Clear conversation data
+    context.user_data.pop('capsule', None)
+
     return SELECTING_ACTION
+
 
 # Placeholder functions for missing functionality
 async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
