@@ -178,6 +178,23 @@ TRANSLATIONS = {
         'capsule_already_activated': '⚠️ Эта капсула уже активирована или доставлена',
         'capsule_not_found': '❌ Капсула не найдена или срок действия ссылки истёк',
         'pending_capsules': '📬 У вас {count} ожидающих капсул',
+        # Delivery messages
+        'capsule_delivered_title': 'Капсула времени доставлена!',
+        'from': 'От',
+        'created': 'Создано',
+        'capsule_has_media': '📎 [Медиа файл]',
+
+        # Pending capsule notification
+        'delivery_pending_notification': '⚠️ <b>Капсула ожидает активации</b>\n\n'
+                                        '👤 Получатель: {username}\n'
+                                        '💡 Отправьте эту ссылку получателю:\n'
+                                        '{invite_link}\n\n'
+                                        'Капсула будет доставлена после активации.',
+
+        'delivery_failed_invalid_chat': '❌ Не удалось доставить капсулу\n\n'
+                                       'Получатель не найден или чат недоступен.',
+        'delivery_failed_error': '❌ Произошла ошибка при доставке капсулы',
+        'delivery_failed_blocked': '❌ Получатель заблокировал бота\n\nКапсула не может быть доставлена.',
 
         # Group delivery
         'capsule_for_group_created': '✅ Капсула для группы создана!\n\n👥 Группа: {group_name}\n⏰ Доставка: {delivery_time}\n\n💡 Убедитесь, что бот добавлен в группу как участник.',
@@ -273,7 +290,26 @@ TRANSLATIONS = {
         'please_start_bot': 'Please use /start to begin using the bot',
         'error_creating_user': '❌ Error creating user. Please try again.',
         'error_setting_language': '❌ Error setting language. Please try /start again.',
+        'capsule_has_media': '📎 [Медиа файл]',
+        'capsule_delivered': '📦 **Капсула времени доставлена!**\n\n'
+                            '💌 От: {sender_name}\n'
+                            '⏰ Создано: {created_at}\n\n'
+                            '{content}',
+        'capsule_delivered_title': 'Time Capsule Delivered!',
+        'from': 'From',
+        'created': 'Created',
+        'capsule_has_media': '📎 [Media file]',
 
+        # Pending capsule notification
+        'delivery_pending_notification': '⚠️ <b>Capsule awaiting activation</b>\n\n'
+                                        '👤 Recipient: {username}\n'
+                                        '💡 Send this link to the recipient:\n'
+                                        '{invite_link}\n\n'
+                                        'Capsule will be delivered after activation.',
+
+        'delivery_failed_invalid_chat': '❌ Failed to deliver capsule\n\nRecipient not found or chat unavailable.',
+        'delivery_failed_error': '❌ An error occurred while delivering the capsule',
+        'delivery_failed_blocked': '❌ Recipient blocked the bot\n\nCapsule cannot be delivered.',
         # Payment errors
         'user_not_found_payment': '❌ User not found. Please use /start',
         'payment_error_contact_support': '💳 Payment received but there was an error. Please contact support with payment ID: {payment_id}',
@@ -383,6 +419,11 @@ If you have payment issues:
         'capsule_not_found': '❌ Capsule not found or invitation link expired',
         'pending_capsules': '📬 You have {count} pending capsules',
 
+        'capsule_has_media': '📎 [Media file]',
+        'capsule_delivered': '📦 **Time Capsule Delivered!**\n\n'
+                            '💌 From: {sender_name}\n'
+                            '⏰ Created: {created_at}\n\n'
+                            '{content}',
         # Group delivery
         'capsule_for_group_created': '✅ Capsule for group created!\n\n👥 Group: {group_name}\n⏰ Delivery: {delivery_time}\n\n💡 Make sure the bot is added to the group as a member.',
         'group_delivery_success': '📦 **Time Capsule Delivered!**\n\n💌 From: {sender_name}\n⏰ Created: {created_at}\n\n{content}',

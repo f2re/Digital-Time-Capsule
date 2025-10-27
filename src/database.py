@@ -715,3 +715,18 @@ def refund_capsule_to_balance(user_id: int) -> bool:
     except Exception as e:
         logger.error(f"Error refunding capsule: {e}")
         return False
+
+def get_user_data_by_telegram_id(telegram_id: int) -> Optional[Dict]:
+    """Get user data by telegram ID"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(users).where(users.c.telegram_id == telegram_id)
+            ).first()
+
+            if result:
+                return dict(result._mapping)
+            return None
+    except Exception as e:
+        logger.error(f"Error getting user data by telegram_id: {e}")
+        return None

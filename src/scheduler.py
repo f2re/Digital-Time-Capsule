@@ -1,111 +1,207 @@
 # src/scheduler.py
 from datetime import datetime, timezone
-from io import BytesIO
-from sqlalchemy import select, and_, update as sqlalchemy_update
-from telegram.ext import Application
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.date import DateTrigger
+from telegram import Bot
+from telegram.ext import Application
+from sqlalchemy import select, and_
+from .database import capsules, engine, mark_capsule_delivered, get_user_by_internal_id
+from .s3_utils import download_and_decrypt_file
 from .config import logger
-from .database import engine, capsules, users, delete_capsule
-from .s3_utils import download_and_decrypt_file, delete_file_from_s3
 from .translations import t
 
-async def deliver_capsule(application, capsule_id: int):
-    """Deliver capsule to recipient at scheduled time"""
-    from telegram.error import TelegramError, Forbidden, ChatNotFound
+# Track notified capsules to avoid spam
+_notified_pending_capsules = set()
 
+async def deliver_capsule(bot: Bot, capsule_id: int):
+    """Deliver a time capsule to recipient"""
     try:
-        # Get capsule data
+        from telegram.error import TelegramError, Forbidden, BadRequest
+
         with engine.connect() as conn:
-            result = conn.execute(
+            capsule = conn.execute(
                 select(capsules).where(capsules.c.id == capsule_id)
             ).first()
 
-            if not result:
+            if not capsule:
                 logger.error(f"Capsule {capsule_id} not found")
                 return
 
-            capsule_data = dict(result._mapping)
+            capsule_data = dict(capsule._mapping)
 
-        # Check if already delivered
-        if capsule_data['delivered']:
-            logger.info(f"Capsule {capsule_id} already delivered")
-            return
-
-        # Get sender info
-        sender_data = get_user_by_internal_id(capsule_data['user_id'])
-        sender_name = sender_data.get('first_name', 'Anonymous') if sender_data else 'Anonymous'
-
-        # Prepare delivery message
-        created_at = capsule_data['created_at'].strftime("%d.%m.%Y")
-        content = capsule_data['content_text'] or "[Media content]"
-
-        recipient_type = capsule_data['recipient_type']
-
-        # GROUP DELIVERY
-        if recipient_type == 'group':
-            try:
-                chat_id = int(capsule_data['recipient_id'])
-
-                delivery_message = f"📦 **Time Capsule Delivered!**\n\n"
-                delivery_message += f"💌 From: {sender_name}\n"
-                delivery_message += f"⏰ Created: {created_at}\n\n"
-                delivery_message += f"{content}"
-
-                await application.bot.send_message(
-                    chat_id=chat_id,
-                    text=delivery_message,
-                    parse_mode='Markdown'
-                )
-
-                logger.info(f"✅ Capsule {capsule_id} delivered to group {chat_id}")
-                mark_capsule_delivered(capsule_id)
+            # Get sender info
+            sender_data = get_user_by_internal_id(capsule_data['user_id'])
+            if not sender_data:
+                logger.error(f"Sender not found for capsule {capsule_id}")
                 return
 
-            except Forbidden:
-                logger.error(f"❌ Bot blocked in group {chat_id}")
-            except ChatNotFound:
-                logger.error(f"❌ Group {chat_id} not found or bot not member")
-            except Exception as e:
-                logger.error(f"❌ Error delivering to group: {e}")
+            sender_name = sender_data.get('first_name', 'Anonymous')
+            sender_lang = sender_data.get('language_code', 'en')
 
-            # Notify sender of failed group delivery
-            await application.bot.send_message(
-                chat_id=sender_data['telegram_id'],
-                text=f"❌ Failed to deliver capsule to group.\nMake sure bot is a group member."
-            )
-            return
+            # Format content
+            content = ""
+            if capsule_data['content_text']:
+                content = capsule_data['content_text']
+            elif capsule_data['content_type'] in ('photo', 'video', 'document', 'voice'):
+                content = t(sender_lang, 'capsule_has_media')
 
-        # USER DELIVERY
-        elif recipient_type == 'user':
-            # Check if activated
-            if not capsule_data['is_activated']:
-                # Not activated - notify sender
-                logger.warning(f"Capsule {capsule_id} not activated yet")
+            if capsule_data.get('message'):
+                content += f"\n\n💬 {capsule_data['message']}"
 
-                await application.bot.send_message(
-                    chat_id=sender_data['telegram_id'],
-                    text=f"⚠️ Capsule awaiting activation!\n\n"
-                         f"Recipient hasn't activated the capsule yet.\n"
-                         f"Send them this link:\n<code>{capsule_data['activation_link']}</code>",
-                    parse_mode='HTML'
-                )
+            created_at = capsule_data['created_at'].strftime("%d.%m.%Y %H:%M")
+
+            # Check recipient type
+            recipient_type = capsule_data['recipient_type']
+
+            # GROUP DELIVERY
+            if recipient_type == 'group':
+                try:
+                    group_id = capsule_data['recipient_id']
+
+                    # Build message using translation
+                    delivery_text = (
+                        f"📦 <b>{t(sender_lang, 'capsule_delivered_title')}</b>\n\n"
+                        f"💌 {t(sender_lang, 'from')}: {sender_name}\n"
+                        f"⏰ {t(sender_lang, 'created')}: {created_at}\n\n"
+                        f"{content}"
+                    )
+
+                    await bot.send_message(
+                        chat_id=group_id,
+                        text=delivery_text,
+                        parse_mode='HTML'
+                    )
+
+                    logger.info(f"✅ Capsule {capsule_id} delivered to group {group_id}")
+                    mark_capsule_delivered(capsule_id)
+                    return
+
+                except Forbidden:
+                    logger.error(f"❌ Bot not a member of group {group_id}")
+                    await bot.send_message(
+                        chat_id=sender_data['telegram_id'],
+                        text=t(sender_lang, 'group_not_member'),
+                        parse_mode='HTML'
+                    )
+                    mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+                except BadRequest as e:
+                    logger.error(f"❌ Group {group_id} not found or invalid: {e}")
+                    await bot.send_message(
+                        chat_id=sender_data['telegram_id'],
+                        text=t(sender_lang, 'delivery_failed_invalid_chat'),
+                        parse_mode='HTML'
+                    )
+                    mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
                 return
 
-            # Activated - deliver
+            # USER DELIVERY
+            # ⭐ CRITICAL FIX: Check if capsule needs activation (username-based)
+            if not capsule_data.get('recipient_id') and capsule_data.get('recipient_username'):
+                # Not yet activated - notify sender ONCE
+                username = capsule_data['recipient_username']
+
+                # Check if we already notified about this capsule
+                if capsule_id not in _notified_pending_capsules:
+                    # Generate invite link
+                    import base64
+                    encoded_uuid = base64.urlsafe_b64encode(
+                        capsule_data['capsule_uuid'].encode()
+                    ).decode().rstrip('=')
+
+                    bot_username = (await bot.get_me()).username
+                    invite_link = f"https://t.me/{bot_username}?start=c_{encoded_uuid}"
+
+                    notification_text = t(
+                        sender_lang,
+                        'delivery_pending_notification',
+                        username=f"@{username}",
+                        invite_link=invite_link
+                    )
+
+                    await bot.send_message(
+                        chat_id=sender_data['telegram_id'],
+                        text=notification_text,
+                        parse_mode='HTML'
+                    )
+
+                    # Mark as notified
+                    _notified_pending_capsules.add(capsule_id)
+                    logger.info(f"Notified sender about pending capsule {capsule_id} for @{username}")
+
+                # DON'T mark as delivered - keep waiting for activation
+                return
+
+            # Activated - deliver to user
             try:
                 user_id = int(capsule_data['recipient_id'])
 
-                delivery_message = f"📦 **Time Capsule Delivered!**\n\n"
-                delivery_message += f"💌 From: {sender_name}\n"
-                delivery_message += f"⏰ Created: {created_at}\n\n"
-                delivery_message += f"{content}"
+                # Get recipient language
+                recipient_lang = 'en'
+                try:
+                    from .database import get_user_data_by_telegram_id
+                    recipient_user_data = get_user_data_by_telegram_id(user_id)
+                    if recipient_user_data:
+                        recipient_lang = recipient_user_data.get('language_code', 'en')
+                except:
+                    pass
 
-                await application.bot.send_message(
-                    chat_id=user_id,
-                    text=delivery_message,
-                    parse_mode='Markdown'
+                # Build message with HTML using translations
+                delivery_message = (
+                    f"📦 <b>{t(recipient_lang, 'capsule_delivered_title')}</b>\n\n"
+                    f"💌 {t(recipient_lang, 'from')}: {sender_name}\n"
+                    f"⏰ {t(recipient_lang, 'created')}: {created_at}\n\n"
+                    f"{content}"
                 )
+
+                # Send media if present
+                if capsule_data['content_type'] in ('photo', 'video', 'document', 'voice'):
+                    try:
+                        file_data = download_and_decrypt_file(
+                            capsule_data['s3_key'],
+                            capsule_data['file_key']
+                        )
+
+                        if capsule_data['content_type'] == 'photo':
+                            await bot.send_photo(
+                                chat_id=user_id,
+                                photo=file_data,
+                                caption=delivery_message,
+                                parse_mode='HTML'
+                            )
+                        elif capsule_data['content_type'] == 'video':
+                            await bot.send_video(
+                                chat_id=user_id,
+                                video=file_data,
+                                caption=delivery_message,
+                                parse_mode='HTML'
+                            )
+                        elif capsule_data['content_type'] == 'document':
+                            await bot.send_document(
+                                chat_id=user_id,
+                                document=file_data,
+                                caption=delivery_message,
+                                parse_mode='HTML'
+                            )
+                        elif capsule_data['content_type'] == 'voice':
+                            await bot.send_voice(
+                                chat_id=user_id,
+                                voice=file_data,
+                                caption=delivery_message
+                            )
+                    except Exception as e:
+                        logger.error(f"Error sending media: {e}")
+                        await bot.send_message(
+                            chat_id=user_id,
+                            text=delivery_message,
+                            parse_mode='HTML'
+                        )
+                else:
+                    # Text only
+                    await bot.send_message(
+                        chat_id=user_id,
+                        text=delivery_message,
+                        parse_mode='HTML'
+                    )
 
                 logger.info(f"✅ Capsule {capsule_id} delivered to user {user_id}")
                 mark_capsule_delivered(capsule_id)
@@ -113,13 +209,29 @@ async def deliver_capsule(application, capsule_id: int):
 
             except Forbidden:
                 logger.error(f"❌ User {user_id} blocked the bot")
-                # Notify sender and provide manual forwarding option
-                await application.bot.send_message(
+                await bot.send_message(
                     chat_id=sender_data['telegram_id'],
-                    text=f"❌ Recipient blocked the bot.\n\nCapsule content:\n\n{content}"
+                    text=t(sender_lang, 'delivery_failed_blocked'),
+                    parse_mode='HTML'
                 )
+                mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+
+            except BadRequest as e:
+                logger.error(f"❌ Invalid chat {user_id}: {e}")
+                await bot.send_message(
+                    chat_id=sender_data['telegram_id'],
+                    text=t(sender_lang, 'delivery_failed_invalid_chat'),
+                    parse_mode='HTML'
+                )
+                mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+
             except Exception as e:
                 logger.error(f"❌ Error delivering to user: {e}")
+                await bot.send_message(
+                    chat_id=sender_data['telegram_id'],
+                    text=t(sender_lang, 'delivery_failed_error'),
+                    parse_mode='HTML'
+                )
 
     except Exception as e:
         logger.error(f"Error in deliver_capsule: {e}")
@@ -143,6 +255,7 @@ async def check_due_capsules(bot):
     except Exception as e:
         logger.error(f"Error checking for due capsules: {e}")
 
+
 def init_scheduler(application: Application) -> AsyncIOScheduler:
     """Initialize scheduler and load pending capsules"""
     scheduler = AsyncIOScheduler(timezone=timezone.utc)
@@ -159,7 +272,6 @@ def init_scheduler(application: Application) -> AsyncIOScheduler:
                 delivery_time = cap_dict['delivery_time'].replace(tzinfo=timezone.utc)
 
                 if delivery_time <= datetime.now(timezone.utc):
-                    # If delivery time is in the past, schedule for immediate delivery
                     scheduler.add_job(
                         deliver_capsule,
                         'date',
@@ -169,7 +281,6 @@ def init_scheduler(application: Application) -> AsyncIOScheduler:
                         replace_existing=True
                     )
                 else:
-                    # Otherwise, schedule it for the future
                     scheduler.add_job(
                         deliver_capsule,
                         trigger=DateTrigger(run_date=delivery_time),
@@ -183,7 +294,6 @@ def init_scheduler(application: Application) -> AsyncIOScheduler:
     except Exception as e:
         logger.error(f"Error initializing scheduler: {e}")
 
-    # Add a job to check for due capsules every minute
     scheduler.add_job(
         check_due_capsules,
         'interval',
