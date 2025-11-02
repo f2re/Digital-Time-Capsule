@@ -1,4 +1,5 @@
 # src/handlers/create_capsule.py
+import base64
 import uuid
 from datetime import datetime, timedelta, timezone
 from dateutil.relativedelta import relativedelta
@@ -517,7 +518,13 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     if not capsule or 'delivery_time' not in capsule:
         logger.error(f"Invalid capsule data in context for user {user.id}: {capsule}")
-        await update.effective_message.reply_text(t(lang, "error_occurred"))
+        if update.callback_query:
+            try:
+                await update.callback_query.message.reply_text(t(lang, "error_occurred"))
+            except Exception:
+                await update.effective_message.reply_text(t(lang, "error_occurred"))
+        else:
+            await update.effective_message.reply_text(t(lang, "error_occurred"))
         return SELECTING_ACTION
 
     # Format recipient display
@@ -550,9 +557,15 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     try:
         if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(
-                confirmation_text,
-                reply_markup=InlineKeyboardMarkup(keyboard)
+            # Use send_menu_with_image instead of edit_message_text to avoid the error
+            # when the original message doesn't contain text (e.g., media-only message)
+            await send_menu_with_image(
+                update=update,
+                context=context,
+                image_key='capsules',
+                caption=confirmation_text,
+                keyboard=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'
             )
         else:
             await update.effective_message.reply_text(
@@ -561,6 +574,24 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             )
     except Exception as e:
         logger.error(f"Error in show_confirmation: {e}")
+        # Fallback: send a regular message if editing fails
+        try:
+            if update.callback_query:
+                await update.callback_query.message.reply_text(
+                    confirmation_text,
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+            else:
+                await update.effective_message.reply_text(
+                    confirmation_text,
+                    reply_markup=InlineKeyboardMarkup(keyboard)
+                )
+        except Exception:
+            # Last resort: just send the message without keyboard
+            if update.callback_query:
+                await update.callback_query.message.reply_text(confirmation_text)
+            else:
+                await update.effective_message.reply_text(confirmation_text)
 
     return CONFIRMING_CAPSULE
 
@@ -672,12 +703,20 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 # Rollback on any error
                 trans.rollback()
                 logger.error(f"Error creating capsule (rolled back): {e}")
-                await query.edit_message_text(t(lang, 'error_occurred'))
+                try:
+                    await query.edit_message_text(t(lang, 'error_occurred'))
+                except Exception:
+                    # Fallback if edit_message_text fails (e.g., original message has no text)
+                    await query.edit_message_caption(caption=t(lang, 'error_occurred'))
                 return SELECTING_ACTION
 
     except Exception as e:
         logger.error(f"Database connection error: {e}")
-        await query.edit_message_text(t(lang, 'error_occurred'))
+        try:
+            await query.edit_message_text(t(lang, 'error_occurred'))
+        except Exception:
+            # Fallback if edit_message_text fails (e.g., original message has no text)
+            await query.edit_message_caption(caption=t(lang, 'error_occurred'))
         return SELECTING_ACTION
 
     # Generate success message
@@ -686,7 +725,6 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if needs_activation and recipient_username_value:
         # Username-based capsule - generate invite link
         bot_username = (await context.bot.get_me()).username
-        import base64
         encoded_uuid = base64.urlsafe_b64encode(capsule_uuid.encode()).decode().rstrip('=')
         invite_link = f"https://t.me/{bot_username}?start=c_{encoded_uuid}"
 
@@ -712,11 +750,27 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
 
-    await query.edit_message_text(
-        success_text,
-        reply_markup=InlineKeyboardMarkup(keyboard),
-        parse_mode='HTML'
-    )
+    try:
+        await query.edit_message_text(
+            success_text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
+    except Exception:
+        # Fallback if edit_message_text fails (e.g., original message has no text)
+        # In this case, we'll send a new message instead
+        try:
+            await query.edit_message_caption(
+                caption=success_text,
+                reply_markup=InlineKeyboardMarkup(keyboard)
+            )
+        except Exception:
+            # If both fail, send a new message
+            await query.message.reply_text(
+                success_text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='HTML'
+            )
 
     logger.info(f"Capsule {capsule_uuid} created for {recipient_type}")
 
