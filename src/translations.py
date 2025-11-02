@@ -57,12 +57,12 @@ TRANSLATIONS = {
         'subscription_info': '💎 Ваша подписка: {tier}\n\n{details}',
         'free_tier_details': '📊 Статистика:\n• Капсулы: {count}/{limit}\n• Хранилище: {used}/{total}\n• Срок хранения: до {days} дней',
         'premium_tier_details': '📊 Статистика:\n• Капсулы: {count} (безлимит)\n• Хранилище: {used}/{total}\n• Срок хранения: до {years} лет\n• Истекает: {expires}',
-        'buy_premium_single': '💳 Одна капсула - {price}₽',
+        'buy_premium_single': '💳 Одна капсула - {stars}⭐',
         'buy_premium_year': '💳 Год подписки - {price}₽',
         'buy_stars_single': '⭐ Одна капсула - {stars} звезд',
         'buy_stars_year': '⭐ Год подписки - {stars} звезд',
         'language_changed': '🌐 Язык изменен',
-        'help_text': '❓ Помощь\n\nDigital Time Capsule позволяет создавать капсулы времени - сообщения, которые будут доставлены в будущем.\n\n🔐 Безопасность:\n• Все файлы шифруются\n• Хранение в Yandex S3\n• Никто не может прочитать ваши капсулы\n\n📋 Команды:\n/start - Главное меню\n/create - Создать капсулу\n/capsules - Мои капсулы\n/subscription - Подписка\n/help - Помощь',
+        'help_text': '❓ Помощь\n\nDigital Time Capsule позволяет создавать капсулы времени - сообщения, которые будут доставлены в будущем.\n\n🔐 Безопасность:\n• Все файлы шифруются\n• Хранение в Yandex S3\n• Никто не может прочитать ваши капсулы\n\n📋 Команды:\n/start - Главное меню\n/create - Создать капсулу\n/capsules - Мои капсулы\n/subscription - Подписка\n/help - Помощь\n/chatid - Узнать ID чата',
         'delivery_title': '🎁 Капсула времени!',
         'delivery_text': 'Вы получили капсулу времени!\n\nСоздана: {created}\nОт: {sender}',
         'error_occurred': '❌ Произошла ошибка. Попробуйте позже.',
@@ -111,26 +111,26 @@ TRANSLATIONS = {
 💰 <b>Премиум от 20 звезд Telegram</b> — цифровые платежи прямо в боте!
 
 ⚡️ <b>Создайте первую капсулу за 30 секунд!</b>''',
-        'buy_single_capsule': '💎 Купить 1 капсулу - {stars}⭐',
-        'buy_pack_3': '📦 3 капсулы - {stars}⭐ (скидка {discount}%)',
-        'buy_pack_10': '📦 10 капсул - {stars}⭐ (скидка {discount}%)',
-        'buy_pack_25': '📦 25 капсул - {stars}⭐ (скидка {discount}%)',
-        'buy_pack_100': '📦 100 капсул - {stars}⭐ (скидка {discount}%)',
-        'buy_premium_month': '💎 Премиум Месяц - {stars}⭐ ({capsules} капсул)',
-        'buy_premium_year': '💎 Премиум Год - {stars}⭐ ({capsules} капсул)',
+        'buy_single_capsule': '💎 Купить 1 капсулу - {stars}⭐ ({rub_price}₽)',
+        'buy_pack_3': '📦 3 капсулы - {stars}⭐ ({rub_price}₽, скидка {discount}%)',
+        'buy_pack_10': '📦 10 капсул - {stars}⭐ ({rub_price}₽, скидка {discount}%)',
+        'buy_pack_25': '📦 25 капсул - {stars}⭐ ({rub_price}₽, скидка {discount}%)',
+        'buy_pack_100': '📦 100 капсул - {stars}⭐ ({rub_price}₽, скидка {discount}%)',
+        'buy_premium_month': '💎 Премиум Месяц - {stars}⭐ ({rub_price}₽, {capsules} капсул)',
+        'buy_premium_year': '💎 Премиум Год - {stars}⭐ ({rub_price}₽, {capsules} капсул)',
 
         'no_capsule_balance': '❌ У вас нет капсул!\n\nКупите капсулы или подписку для создания капсул времени.',
         'buy_capsules': '💰 Купить капсулы',
-        'pay_button': '💳 Оплатить {stars}⭐',
+        'pay_button': '💳 Оплатить {amount}',
 
-        'invoice_title_single': 'Одна капсула',
-        'invoice_desc_single': 'Создайте одну капсулу времени любого типа',
-        'invoice_title_pack': '{count} капсул',
-        'invoice_desc_pack': 'Пакет из {count} капсул со скидкой {discount}%',
-        'invoice_title_premium_month': 'Премиум на месяц',
-        'invoice_desc_premium_month': 'Премиум подписка на 1 месяц + {capsules} капсул',
-        'invoice_title_premium_year': 'Премиум на год',
-        'invoice_desc_premium_year': 'Премиум подписка на 1 год + {capsules} капсул',
+        'invoice_title_single': 'Одна капсула ({stars}⭐)',
+        'invoice_desc_single': 'Создайте одну капсулу времени любого типа ({price}₽)',
+        'invoice_title_pack': '{count} капсул ({stars}⭐)',
+        'invoice_desc_pack': 'Пакет из {count} капсул со скидкой {discount}% ({price}₽)',
+        'invoice_title_premium_month': 'Премиум на месяц ({stars}⭐)',
+        'invoice_desc_premium_month': 'Премиум подписка на 1 месяц + {capsules} капсул ({price}₽)',
+        'invoice_title_premium_year': 'Премиум на год ({stars}⭐)',
+        'invoice_desc_premium_year': 'Премиум подписка на 1 год + {capsules} капсул ({price}₽)',
         'storage_limit_reached': '''❌ Превышен лимит хранилища!
 
 💾 Использовано: {used_mb:.1f} МБ / {limit_mb:.0f} МБ
@@ -183,6 +183,16 @@ TRANSLATIONS = {
         'from': 'От',
         'created': 'Создано',
         'capsule_has_media': '📎 [Медиа файл]',
+        'select_payment_method_text': 'Выберите способ оплаты:',
+        'payment_method_stars': '⭐ Оплатить Telegram Stars',
+        'payment_method_card': '💳 Оплатить картой',
+        'select_currency_text': 'Выберите валюту для оплаты:',
+        'currency_rub': '₽ Российский рубль (RUB)',
+        'currency_usd': '$ Доллар США (USD)',
+        'payment_error': '❌ Ошибка при создании платежа. Попробуйте снова.',
+        'payment_error_contact_support': '❌ Ошибка обработки платежа. Обратитесь в поддержку.',
+        'transaction_id': 'ID транзакции',
+        'starter_bonus_info': '🎁 У вас {count} бесплатных капсул для знакомства с сервисом!',
 
         # Pending capsule notification
         'delivery_pending_notification': '⚠️ <b>Капсула ожидает активации</b>\n\n'
@@ -220,11 +230,22 @@ TRANSLATIONS = {
                                    '• @username (например: @username)\n'
                                    '• Числовой ID (например: 123456789)\n\n'
                                    '💡 При использовании @username капсула активируется '
-                                   'когда получатель запустит бота.',
-    },
-    'en': {
-        'select_language': '🌐 Выберите язык / Select language:',
-        'language_russian': '🇷🇺 Русский',
+                                                                       'когда получатель запустит бота.',
+                                           
+                                           # Legal Information
+                                           'legal_info': 'Правовая информация',
+                                           'legal_info_title': '⚖️ Правовая информация',
+                                           'legal_contacts': 'Контакты',
+                                           'legal_requisites': 'Реквизиты',
+                                           'legal_terms': 'Условия предоставления услуг',
+                                           'legal_refund': 'Политика возврата',
+                                           'legal_contacts_text': '📧 Email: {email}\n💬 Telegram: {telegram_url}',
+                                           'legal_terms_text': 'Здесь будут условия предоставления услуг...',
+                                           'legal_refund_text': 'Для осуществления возврата средств, пожалуйста, свяжитесь с нашей службой поддержки: {telegram_url}',
+                                           'chatid_info': '🆔 ID текущего чата: <code>{chat_id}</code>\nТип чата: {chat_type}',
+                                       },
+                                       'en': {
+                                           'select_language': '🌐 Выберите язык / Select language:',        'language_russian': '🇷🇺 Русский',
         'language_english': '🇬🇧 English',
         'start_welcome': '🕰 Welcome to Digital Time Capsule!\n\nI will help you create time capsules - send messages to the future to yourself, a friend, or a group!',
         'main_menu': '📋 Main Menu',
@@ -278,28 +299,36 @@ TRANSLATIONS = {
         'subscription_info': '💎 Your subscription: {tier}\n\n{details}',
         'free_tier_details': '📊 Statistics:\n• Capsules: {count}/{limit}\n• Storage: {used}/{total}\n• Storage period: up to {days} days',
         'premium_tier_details': '📊 Statistics:\n• Capsules: {count} (unlimited)\n• Storage: {used}/{total}\n• Storage period: up to {years} years\n• Expires: {expires}',
-        'buy_premium_single': '💳 Single capsule - {price}₽',
+        'buy_premium_single': '💳 Single capsule - {stars}⭐',
         'buy_premium_year': '💳 Yearly subscription - {price}₽',
         'buy_stars_single': '⭐ Single capsule - {stars} stars',
         'buy_stars_year': '⭐ Yearly subscription - {stars} stars',
         'language_changed': '🌐 Language changed',
-        'help_text': '❓ Help\n\nDigital Time Capsule lets you create time capsules - messages that will be delivered in the future.\n\n🔐 Security:\n• All files are encrypted\n• Stored in Yandex S3\n• No one can read your capsules\n\n📋 Commands:\n/start - Main menu\n/create - Create capsule\n/capsules - My capsules\n/subscription - Subscription\n/help - Help',
+        'help_text': '❓ Help\n\nDigital Time Capsule lets you create time capsules - messages that will be delivered in the future.\n\n🔐 Security:\n• All files are encrypted\n• Stored in Yandex S3\n• No one can read your capsules\n\n📋 Commands:\n/start - Main menu\n/create - Create capsule\n/capsules - My capsules\n/subscription - Subscription\n/help - Help\n/chatid - Get chat ID',
         'delivery_title': '🎁 Time Capsule!',
         'delivery_text': 'You received a time capsule!\n\nCreated: {created}\nFrom: {sender}',
         'error_occurred': '❌ An error occurred. Try again later.',
         'please_start_bot': 'Please use /start to begin using the bot',
         'error_creating_user': '❌ Error creating user. Please try again.',
         'error_setting_language': '❌ Error setting language. Please try /start again.',
-        'capsule_has_media': '📎 [Медиа файл]',
-        'capsule_delivered': '📦 **Капсула времени доставлена!**\n\n'
-                            '💌 От: {sender_name}\n'
-                            '⏰ Создано: {created_at}\n\n'
+        'capsule_delivered': '📦 **Time Capsule Delivered!**\n\n'
+                            '💌 From: {sender_name}\n'
+                            '⏰ Created: {created_at}\n\n'
                             '{content}',
         'capsule_delivered_title': 'Time Capsule Delivered!',
         'from': 'From',
         'created': 'Created',
         'capsule_has_media': '📎 [Media file]',
-
+        'select_payment_method_text': 'Select payment method:',
+        'payment_method_stars': '⭐ Pay with Telegram Stars',
+        'payment_method_card': '💳 Pay with Card',
+        'select_currency_text': 'Select currency:',
+        'currency_rub': '₽ Russian Ruble (RUB)',
+        'currency_usd': '$ US Dollar (USD)',
+        'payment_error': '❌ Payment creation error. Please try again.',
+        'payment_error_contact_support': '❌ Payment processing error. Contact support.',
+        'transaction_id': 'Transaction ID',
+        'starter_bonus_info': '🎁 You have {count} free capsules to try our service!',
         # Pending capsule notification
         'delivery_pending_notification': '⚠️ <b>Capsule awaiting activation</b>\n\n'
                                         '👤 Recipient: {username}\n'
@@ -351,26 +380,26 @@ Your personal service for sending messages to the future. Securely. Encrypted. R
 💰 <b>Premium from 20 Telegram Stars</b> — digital payments directly in the bot!
 
 ⚡️ <b>Create your first capsule in 30 seconds!</b>''',
-        'buy_single_capsule': '💎 Buy 1 capsule - {stars}⭐',
-        'buy_pack_3': '📦 3 capsules - {stars}⭐ ({discount}% off)',
-        'buy_pack_10': '📦 10 capsules - {stars}⭐ ({discount}% off)',
-        'buy_pack_25': '📦 25 capsules - {stars}⭐ ({discount}% off)',
-        'buy_pack_100': '📦 100 capsules - {stars}⭐ ({discount}% off)',
-        'buy_premium_month': '💎 Premium Month - {stars}⭐ ({capsules} capsules)',
-        'buy_premium_year': '💎 Premium Year - {stars}⭐ ({capsules} capsules)',
+        'buy_single_capsule': '💎 Buy 1 capsule - {stars}⭐ (${usd_price})',
+        'buy_pack_3': '📦 3 capsules - {stars}⭐ (${usd_price}, {discount}% off)',
+        'buy_pack_10': '📦 10 capsules - {stars}⭐ (${usd_price}, {discount}% off)',
+        'buy_pack_25': '📦 25 capsules - {stars}⭐ (${usd_price}, {discount}% off)',
+        'buy_pack_100': '📦 100 capsules - {stars}⭐ (${usd_price}, {discount}% off)',
+        'buy_premium_month': '💎 Premium Month - {stars}⭐ (${usd_price}, {capsules} capsules)',
+        'buy_premium_year': '💎 Premium Year - {stars}⭐ (${usd_price}, {capsules} capsules)',
 
         'no_capsule_balance': '❌ You have no capsules!\n\nBuy capsules or subscription to create time capsules.',
         'buy_capsules': '💰 Buy Capsules',
-        'pay_button': '💳 Pay {stars}⭐',
+        'pay_button': '💳 Pay {amount}',
 
-        'invoice_title_single': 'One Capsule',
-        'invoice_desc_single': 'Create one time capsule of any type',
-        'invoice_title_pack': '{count} Capsules',
-        'invoice_desc_pack': 'Pack of {count} capsules with {discount}% discount',
-        'invoice_title_premium_month': 'Premium Month',
-        'invoice_desc_premium_month': 'Premium subscription for 1 month + {capsules} capsules',
-        'invoice_title_premium_year': 'Premium Year',
-        'invoice_desc_premium_year': 'Premium subscription for 1 year + {capsules} capsules',
+        'invoice_title_single': 'One Capsule ({stars}⭐)',
+        'invoice_desc_single': 'Create one time capsule of any type (${price})',
+        'invoice_title_pack': '{count} Capsules ({stars}⭐)',
+        'invoice_desc_pack': 'Pack of {count} capsules with {discount}% discount (${price})',
+        'invoice_title_premium_month': 'Premium Month ({stars}⭐)',
+        'invoice_desc_premium_month': 'Premium subscription for 1 month + {capsules} capsules (${price})',
+        'invoice_title_premium_year': 'Premium Year ({stars}⭐)',
+        'invoice_desc_premium_year': 'Premium subscription for 1 year + {capsules} capsules (${price})',
         'storage_limit_reached': '''❌ Storage limit exceeded!
 
 💾 Used: {used_mb:.1f} MB / {limit_mb:.0f} MB
@@ -419,7 +448,6 @@ If you have payment issues:
         'capsule_not_found': '❌ Capsule not found or invitation link expired',
         'pending_capsules': '📬 You have {count} pending capsules',
 
-        'capsule_has_media': '📎 [Media file]',
         'capsule_delivered': '📦 **Time Capsule Delivered!**\n\n'
                             '💌 From: {sender_name}\n'
                             '⏰ Created: {created_at}\n\n'
@@ -448,9 +476,22 @@ If you have payment issues:
                                    '• @username (example: @john)\n'
                                    '• Numeric ID (example: 123456789)\n\n'
                                    '💡 When using @username, capsule activates '
-                                   'when recipient starts the bot.',
+                                                                       'when recipient starts the bot.',
+                                           
+                                           # Legal Information
+                                           'legal_info': 'Legal Information',
+                                           'legal_info_title': '⚖️ Legal Information',
+                                           'legal_contacts': 'Contacts',
+                                           'legal_requisites': 'Requisites',
+                                           'legal_terms': 'Terms of Service',
+                                           'legal_refund': 'Refund Policy',
+                                           'legal_contacts_text': '📧 Email: {email}\n💬 Telegram: {telegram_url}',
+                                           'legal_terms_text': 'Terms of service will be here...',
+                                           'legal_refund_text': 'To request a refund, please contact our support team: {telegram_url}',
+                                           'chatid_info': '🆔 Current chat ID: <code>{chat_id}</code>\nChat type: {chat_type}',
         }
 }
+
 
 def t(lang: str, key: str, **kwargs) -> str:
     """Get translated text"""

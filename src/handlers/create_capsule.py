@@ -5,6 +5,7 @@ from dateutil.relativedelta import relativedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from sqlalchemy import select, insert, update as sqlalchemy_update
+from ..image_menu import send_menu_with_image
 from ..config import (
     SELECTING_ACTION, SELECTING_CONTENT_TYPE, RECEIVING_CONTENT,
     SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
@@ -39,7 +40,6 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
     logger.info(f"User {user.id} starting capsule creation. Balance: {capsule_balance}")
 
     if capsule_balance <= 0:
-        # User has no capsules - show purchase options
         keyboard = [[
             InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
         ], [
@@ -48,17 +48,15 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
 
         error_text = t(lang, 'no_capsule_balance')
 
-        if query and query.message:
-            try:
-                await query.edit_message_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
-            except Exception as e:
-                logger.error(f"Error editing message: {e}")
-                await query.message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
-        else:
-            message = update.message or update.effective_message
-            if message:
-                await message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
-
+        # Use send_menu_with_image for error state
+        await send_menu_with_image(
+            update=update,
+            context=context,
+            image_key='capsules',
+            caption=error_text,
+            keyboard=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
         return SELECTING_ACTION
 
     # Check storage quota (still important!)
@@ -77,16 +75,14 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
 
         error_text = t(lang, 'storage_limit_reached', used_mb=used_mb, limit_mb=limit_mb)
 
-        if query and query.message:
-            try:
-                await query.edit_message_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
-            except:
-                await query.message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
-        else:
-            message = update.message or update.effective_message
-            if message:
-                await message.reply_text(error_text, reply_markup=InlineKeyboardMarkup(keyboard))
-
+        await send_menu_with_image(
+            update=update,
+            context=context,
+            image_key='capsules',
+            caption=error_text,
+            keyboard=InlineKeyboardMarkup(keyboard),
+            parse_mode='HTML'
+        )
         return SELECTING_ACTION
 
     # Initialize capsule data in context
@@ -104,19 +100,14 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
     ]
 
     content_text = t(lang, 'select_content_type')
-
-    try:
-        if query and query.message:
-            try:
-                await query.edit_message_text(content_text, reply_markup=InlineKeyboardMarkup(keyboard))
-            except:
-                await query.message.reply_text(content_text, reply_markup=InlineKeyboardMarkup(keyboard))
-        else:
-            message = update.message or update.effective_message
-            if message:
-                await message.reply_text(content_text, reply_markup=InlineKeyboardMarkup(keyboard))
-    except Exception as e:
-        logger.error(f"Error in start_create_capsule: {e}")
+    await send_menu_with_image(
+        update=update,
+        context=context,
+        image_key='capsules',
+        caption=content_text,
+        keyboard=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
 
     return SELECTING_CONTENT_TYPE
 
@@ -157,11 +148,16 @@ async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     instruction_text = t(lang, 'send_content', type=type_names.get(content_type, content_type))
 
-    try:
-        await query.edit_message_text(instruction_text)
-    except Exception as e:
-        logger.error(f"Error editing message in select_content_type: {e}")
-        await query.message.reply_text(instruction_text)
+    await send_menu_with_image(
+        update=update,
+        context=context,
+        image_key='capsules',
+        caption=instruction_text,
+        keyboard=InlineKeyboardMarkup([[
+            InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
+        ]]),
+        parse_mode='HTML'
+    )
 
     return RECEIVING_CONTENT
 
@@ -332,7 +328,17 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     time_option = query.data.replace('time_', '')
 
     if time_option == 'custom':
-        await query.edit_message_text(t(lang, 'enter_date'))
+       # Show custom date input
+        await send_menu_with_image(
+            update=update,
+            context=context,
+            image_key='capsules',
+            caption=t(lang, 'enter_date'),
+            keyboard=InlineKeyboardMarkup([[
+                InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
+            ]]),
+            parse_mode='HTML'
+        )
         return SELECTING_DATE
 
     # Calculate delivery time with proper timezone handling
@@ -363,11 +369,15 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
         days_diff = (delivery_time - now).days
         if days_diff > max_days:
-            await query.edit_message_text(
-                t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=25),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(t(lang, 'back'), callback_data='back_to_time')
-                ]])
+            await send_menu_with_image(
+                update=update,
+                context=context,
+                image_key='capsules',
+                caption=t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=25),
+                keyboard=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
+                ]]),
+                parse_mode='HTML'
             )
             return SELECTING_TIME
 
@@ -399,14 +409,14 @@ async def show_recipient_selection(update: Update, context: ContextTypes.DEFAULT
 
     recipient_text = t(lang, 'select_recipient')
 
-    try:
-        if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(recipient_text, reply_markup=InlineKeyboardMarkup(keyboard))
-        else:
-            await update.effective_message.reply_text(recipient_text, reply_markup=InlineKeyboardMarkup(keyboard))
-    except Exception as e:
-        logger.error(f"Error in show_recipient_selection: {e}")
-
+    await send_menu_with_image(
+        update=update,
+        context=context,
+        image_key='capsules',
+        caption=recipient_text,
+        keyboard=InlineKeyboardMarkup(keyboard),
+        parse_mode='HTML'
+    )
     return SELECTING_RECIPIENT
 
 async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:

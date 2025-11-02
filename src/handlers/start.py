@@ -5,6 +5,7 @@ from ..translations import t
 from ..config import SELECTING_LANG, SELECTING_ACTION, logger
 from .main_menu import get_main_menu_keyboard
 import os
+from ..image_menu import send_menu_with_image
 import base64
 from ..database import (
     get_or_create_user,
@@ -18,17 +19,9 @@ from ..database import (
 )
 from sqlalchemy import select
 
-WELCOME_IMAGE_PATH = os.path.join(
-    os.path.dirname(__file__),
-    '..', '..',
-    'assets',
-    'welcome.png'
-)
-
 async def show_main_menu_with_image(update: Update, context: ContextTypes.DEFAULT_TYPE, user_data: dict = None) -> int:
     """
-    Universal function to show main menu with welcome image
-    Works for both new messages and callback queries
+    Show main menu with welcome image
     """
     user = update.effective_user
 
@@ -42,41 +35,16 @@ async def show_main_menu_with_image(update: Update, context: ContextTypes.DEFAUL
     lang = user_data['language_code']
     caption_text = t(lang, 'start_welcome_full')
     keyboard = get_main_menu_keyboard(lang)
-    query = update.callback_query
 
-    try:
-        if query:
-            # If it's a callback query, delete old message and send new one with image
-            await query.answer()
-            try:
-                await query.message.delete()
-            except:
-                pass  # Message might be already deleted
-
-            with open(WELCOME_IMAGE_PATH, 'rb') as photo_file:
-                await update.effective_chat.send_photo(
-                    photo=photo_file,
-                    caption=caption_text,
-                    reply_markup=keyboard,
-                    parse_mode='HTML'
-                )
-        else:
-            # New message command
-            with open(WELCOME_IMAGE_PATH, 'rb') as photo_file:
-                await update.message.reply_photo(
-                    photo=photo_file,
-                    caption=caption_text,
-                    reply_markup=keyboard,
-                    parse_mode='HTML'
-                )
-    except Exception as e:
-        logger.error(f"Error showing main menu: {e}")
-        # Fallback to text-only menu
-        await update.effective_message.reply_text(
-            caption_text,
-            reply_markup=keyboard,
-            parse_mode='HTML'
-        )
+    # Use new helper function
+    await send_menu_with_image(
+        update=update,
+        context=context,
+        image_key='welcome',  # Uses assets/welcome.png
+        caption=caption_text,
+        keyboard=keyboard,
+        parse_mode='HTML'
+    )
 
     return SELECTING_ACTION
 

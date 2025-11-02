@@ -218,6 +218,9 @@ YANDEX_BUCKET_NAME=your_bucket_name
 YANDEX_REGION=ru-central1
 
 # Payment (optional - for traditional payments)
+# For Redsys Test payment provider: PAYMENT_PROVIDER_TOKEN=your_redsys_test_token
+# For Stripe: PAYMENT_PROVIDER_TOKEN=your_stripe_token
+# For other payment providers: PAYMENT_PROVIDER_TOKEN=your_provider_token
 PAYMENT_PROVIDER_TOKEN=your_payment_provider_token
 ```
 
@@ -649,6 +652,31 @@ This project is licensed under the **MIT License** - see the [LICENSE](LICENSE) 
 - [Cryptography](https://cryptography.io/) - Encryption library
 - [SQLAlchemy](https://www.sqlalchemy.org/) - Database ORM
 - [APScheduler](https://apscheduler.readthedocs.io/) - Task scheduling
+
+***
+
+## 🧪 Testing Payment Integration
+
+### Testing with Redsys Test
+To test the Redsys payment integration:
+
+1. **Set up Redsys Test account** and obtain your test payment provider token
+2. **Configure environment** with your test token:
+   ```bash
+   PAYMENT_PROVIDER_TOKEN=your_redsys_test_token
+   ```
+3. **Run the bot** and navigate to subscription menu
+4. **Test payment flow**:
+   - Select any payment option
+   - Choose "Pay with Card" 
+   - Select RUB or USD currency
+   - Complete the test payment flow using Redsys test card details
+5. **Verify successful payment** processing in logs
+6. **Test error scenarios** to ensure proper error handling
+
+### Test Card Details (for Redsys Test)
+- Use test card numbers provided by Redsys for testing
+- Check Redsys documentation for valid test scenarios
 
 ***
 

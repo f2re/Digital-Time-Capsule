@@ -6,6 +6,7 @@ from ..database import engine, capsules, delete_capsule as db_delete_capsule
 from ..s3_utils import delete_file_from_s3
 from ..translations import t
 from .view_capsules import show_capsules
+from ..image_menu import send_menu_with_image
 
 async def delete_capsule_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle capsule deletion"""
@@ -27,7 +28,7 @@ async def delete_capsule_handler(update: Update, context: ContextTypes.DEFAULT_T
 
             # Delete from database
             db_delete_capsule(capsule_id)
-            
+
             # Show updated capsule list
             return await show_capsules(update, context)
 

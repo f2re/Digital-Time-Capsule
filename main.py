@@ -16,6 +16,7 @@ from src.config import (
     BOT_TOKEN, SELECTING_LANG, SELECTING_ACTION, SELECTING_CONTENT_TYPE,
     RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
     CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS,
+    SELECTING_PAYMENT_METHOD, SELECTING_CURRENCY, MANAGING_LEGAL_INFO,
     logger
 )
 
@@ -42,14 +43,23 @@ from src.handlers.view_capsules import show_capsules
 from src.handlers.delete_capsule import delete_capsule_handler
 
 # Payment & Subscription Handlers
+
 from src.handlers.subscription import (
-    show_subscription, handle_payment, precheckout_callback,
-    successful_payment_callback, paysupport_command
+    show_subscription,
+    select_payment_method,
+    select_currency,
+    process_payment,
+    precheckout_callback,
+    successful_payment_callback,
+    paysupport_command
 )
+
 
 # Settings & Help Handlers
 from src.handlers.settings import show_settings, language_callback_handler
 from src.handlers.help import help_command
+from src.handlers.chatid import chatid_command
+from src.handlers.legal_info import legal_info_handler, show_legal_info_menu
 
 import asyncio
 
@@ -213,9 +223,18 @@ async def main():
 
             # Subscription Management States
             MANAGING_SUBSCRIPTION: [
-                CallbackQueryHandler(handle_payment, pattern="^buy_"),
-                CallbackQueryHandler(show_subscription, pattern="^subscription$"),
-                CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
+                CallbackQueryHandler(show_subscription, pattern='^subscription$'),
+                CallbackQueryHandler(select_payment_method, pattern='^select_subscription:'),  # NEW
+                CallbackQueryHandler(main_menu_handler, pattern='^main_menu$')
+            ],
+
+            SELECTING_PAYMENT_METHOD: [  # NEW STATE
+                CallbackQueryHandler(select_currency, pattern='^payment_method:'),
+                CallbackQueryHandler(show_subscription, pattern='^subscription$')
+            ],
+            SELECTING_CURRENCY: [  # NEW STATE
+                CallbackQueryHandler(process_payment, pattern='^currency:'),
+                CallbackQueryHandler(show_subscription, pattern='^subscription$')
             ],
 
             # Capsule Viewing States
@@ -228,6 +247,13 @@ async def main():
             # Settings States
             MANAGING_SETTINGS: [
                 CallbackQueryHandler(language_callback_handler, pattern="^set_lang_"),
+                CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
+            ],
+
+            # Legal Info States
+            MANAGING_LEGAL_INFO: [
+                CallbackQueryHandler(legal_info_handler, pattern="^(legal_contacts|legal_requisites|legal_terms|legal_refund)$"),
+                CallbackQueryHandler(show_legal_info_menu, pattern="^legal_info_menu$"),
                 CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
             ],
         },
@@ -259,6 +285,7 @@ async def main():
     # ========================================================================
 
     application.add_handler(CommandHandler('help', help_command))
+    application.add_handler(CommandHandler('chatid', chatid_command))
     application.add_handler(CommandHandler('paysupport', paysupport_command))
 
     # ========================================================================

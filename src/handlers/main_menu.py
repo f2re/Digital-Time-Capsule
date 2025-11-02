@@ -14,6 +14,9 @@ def get_main_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(f"💎 {t(lang, 'subscription')}", callback_data='subscription')],
         [
             InlineKeyboardButton(f"⚙️ {t(lang, 'settings')}", callback_data='settings'),
+            InlineKeyboardButton(f"⚖️ {t(lang, 'legal_info')}", callback_data='legal_info')
+        ],
+        [
             InlineKeyboardButton(f"❓ {t(lang, 'help')}", callback_data='help')
         ]
     ]
@@ -26,6 +29,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     from .subscription import show_subscription
     from .settings import show_settings
     from .start import show_main_menu_with_image
+    from .legal_info import show_legal_info_menu
 
     query = update.callback_query
     if query:
@@ -56,24 +60,34 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif action == 'settings':
         return await show_settings(update, context)
 
+    elif action == 'legal_info':
+        return await show_legal_info_menu(update, context)
+
     elif action == 'help':
-        # Show help text, then return to main menu button
+        # Show help with image, then return to main menu
+        from ..image_menu import send_menu_with_image
         if query:
             try:
-                await query.edit_message_text(
-                    t(lang, 'help_text'),
-                    reply_markup=InlineKeyboardMarkup([[
+                # Delete the current message and send new one with image
+                await query.message.delete()
+                await send_menu_with_image(
+                    update=update,
+                    context=context,
+                    image_key='help',
+                    caption=t(lang, 'help_text'),
+                    keyboard=InlineKeyboardMarkup([[
                         InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
                     ]]),
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
             except:
+                # Fallback to text-only if image sending fails
                 await query.message.reply_text(
                     t(lang, 'help_text'),
                     reply_markup=InlineKeyboardMarkup([[
                         InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
                     ]]),
-                    parse_mode='Markdown'
+                    parse_mode='HTML'
                 )
         return SELECTING_ACTION
 
