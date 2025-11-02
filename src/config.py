@@ -85,28 +85,32 @@ CAPSULE_PRICE_USD = 0.50  # Minimum allowed for USD
 # Capsule packs with progressive discounts
 CAPSULE_PACKS = {
     'pack_3': {
-        'price_stars': 10,
+        'price_stars': 1,
+        # 'price_stars': 10,
         'price_rub': 150,  # ~$1.60 at current exchange rates
         'price_usd': 1.50,  # Minimum reasonable for 3-pack
         'count': 3,
         'discount': 17
     },
     'pack_10': {
-        'price_stars': 30,
+        'price_stars': 1,
+        # 'price_stars': 30,
         'price_rub': 51,
         'price_usd': 0.6,
         'count': 10,
         'discount': 25
     },
     'pack_25': {
-        'price_stars': 65,
+        'price_stars': 1,
+        # 'price_stars': 65,
         'price_rub': 110.5,
         'price_usd': 1.2,
         'count': 25,
         'discount': 35
     },
     'pack_100': {
-        'price_stars': 220,
+        'price_stars': 1,
+        # 'price_stars': 220,
         'price_rub': 374,
         'price_usd': 3.8,
         'count': 100,
