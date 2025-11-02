@@ -95,7 +95,7 @@
 
 Support: /support
 Email: support@timecapsule.example
-Telegram: @DigitalTimeCapsuleBot
+Telegram: @@DigitalTimeCapsule_bot
 
 ---
 

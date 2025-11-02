@@ -231,7 +231,7 @@ TRANSLATIONS = {
                                    '• Числовой ID (например: 123456789)\n\n'
                                    '💡 При использовании @username капсула активируется '
                                                                        'когда получатель запустит бота.',
-                                           
+
                                            # Legal Information
                                            'legal_info': 'Правовая информация',
                                            'legal_info_title': '⚖️ Правовая информация',
@@ -240,7 +240,7 @@ TRANSLATIONS = {
                                            'legal_terms': 'Условия предоставления услуг',
                                            'legal_refund': 'Политика возврата',
                                            'legal_contacts_text': '📧 Email: {email}\n💬 Telegram: {telegram_url}',
-                                           'legal_terms_text': 'Здесь будут условия предоставления услуг...',
+                                           'legal_terms_text': 'Условия предоставления услуг https://disk.yandex.ru/i/z7VJXXGoYuz-vA',
                                            'legal_refund_text': 'Для осуществления возврата средств, пожалуйста, свяжитесь с нашей службой поддержки: {telegram_url}',
                                            'chatid_info': '🆔 ID текущего чата: <code>{chat_id}</code>\nТип чата: {chat_type}',
                                        },
@@ -477,7 +477,7 @@ If you have payment issues:
                                    '• Numeric ID (example: 123456789)\n\n'
                                    '💡 When using @username, capsule activates '
                                                                        'when recipient starts the bot.',
-                                           
+
                                            # Legal Information
                                            'legal_info': 'Legal Information',
                                            'legal_info_title': '⚖️ Legal Information',
@@ -486,7 +486,7 @@ If you have payment issues:
                                            'legal_terms': 'Terms of Service',
                                            'legal_refund': 'Refund Policy',
                                            'legal_contacts_text': '📧 Email: {email}\n💬 Telegram: {telegram_url}',
-                                           'legal_terms_text': 'Terms of service will be here...',
+                                           'legal_terms_text': 'Terms of service https://disk.yandex.ru/i/28EwKJybG4hT4A',
                                            'legal_refund_text': 'To request a refund, please contact our support team: {telegram_url}',
                                            'chatid_info': '🆔 Current chat ID: <code>{chat_id}</code>\nChat type: {chat_type}',
         }
