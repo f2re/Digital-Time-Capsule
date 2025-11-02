@@ -71,8 +71,19 @@ async def show_settings(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                     text=settings_text,
                     reply_markup=InlineKeyboardMarkup(keyboard)
                 )
-            except:
-                pass
+            except Exception:
+                # Fallback if edit_message_text fails (e.g., original message has no text)
+                try:
+                    await query.edit_message_caption(
+                        caption=settings_text,
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
+                except Exception:
+                    # If both fail, send a new message
+                    await query.message.reply_text(
+                        settings_text,
+                        reply_markup=InlineKeyboardMarkup(keyboard)
+                    )
         else:
             await update.effective_message.reply_text(
                 settings_text,

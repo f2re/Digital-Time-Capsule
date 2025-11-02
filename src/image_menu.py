@@ -69,11 +69,27 @@ async def send_menu_with_image(
         # Fallback to text-only
         try:
             if query:
-                await query.edit_message_text(
-                    text=caption,
-                    reply_markup=keyboard,
-                    parse_mode=parse_mode
-                )
+                try:
+                    await query.edit_message_text(
+                        text=caption,
+                        reply_markup=keyboard,
+                        parse_mode=parse_mode
+                    )
+                except Exception:
+                    # Fallback if edit_message_text fails (e.g., original message has no text)
+                    try:
+                        await query.edit_message_caption(
+                            caption=caption,
+                            reply_markup=keyboard,
+                            parse_mode=parse_mode
+                        )
+                    except Exception:
+                        # If both fail, send a new message
+                        await query.message.reply_text(
+                            caption,
+                            reply_markup=keyboard,
+                            parse_mode=parse_mode
+                        )
             else:
                 await update.effective_message.reply_text(
                     text=caption,

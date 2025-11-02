@@ -36,5 +36,13 @@ async def delete_capsule_handler(update: Update, context: ContextTypes.DEFAULT_T
         # Handle error
         user_data = context.user_data
         lang = user_data.get('language_code', 'en')
-        await query.edit_message_text(t(lang, "error_occurred"))
+        try:
+            await query.edit_message_text(t(lang, "error_occurred"))
+        except Exception:
+            # Fallback if edit_message_text fails (e.g., original message has no text)
+            try:
+                await query.edit_message_caption(caption=t(lang, "error_occurred"))
+            except Exception:
+                # If both fail, send a new message
+                await query.message.reply_text(t(lang, "error_occurred"))
         return -1

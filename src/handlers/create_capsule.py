@@ -303,11 +303,23 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     try:
         if hasattr(update, 'callback_query') and update.callback_query:
-            await update.callback_query.edit_message_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
+            try:
+                await update.callback_query.edit_message_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
+            except Exception:
+                # Fallback if edit_message_text fails (e.g., original message has no text)
+                try:
+                    await update.callback_query.edit_message_caption(caption=time_text, reply_markup=InlineKeyboardMarkup(keyboard))
+                except Exception:
+                    # If both fail, send a new message
+                    await update.callback_query.message.reply_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
         else:
             await update.message.reply_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
     except Exception as e:
         logger.error(f"Error in show_time_selection: {e}")
+        if hasattr(update, 'callback_query') and update.callback_query:
+            await update.callback_query.message.reply_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
+        else:
+            await update.effective_message.reply_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
         await update.effective_message.reply_text(time_text, reply_markup=InlineKeyboardMarkup(keyboard))
 
     return SELECTING_TIME
@@ -389,7 +401,15 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     except Exception as e:
         logger.error(f"Error in select_time: {e}")
-        await query.edit_message_text(t(lang, 'error_occurred'))
+        try:
+            await query.edit_message_text(t(lang, 'error_occurred'))
+        except Exception:
+            # Fallback if edit_message_text fails (e.g., original message has no text)
+            try:
+                await query.edit_message_caption(caption=t(lang, 'error_occurred'))
+            except Exception:
+                # If both fail, send a new message
+                await query.message.reply_text(t(lang, 'error_occurred'))
         return SELECTING_TIME
 
 async def show_recipient_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -448,12 +468,30 @@ async def select_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
             instruction_key = 'enter_userid_instruction' if recipient_type == 'user' else 'enter_groupid_instruction'
 
-            await query.edit_message_text(
-                t(lang, instruction_key),
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
-                ]])
-            )
+            try:
+                await query.edit_message_text(
+                    t(lang, instruction_key),
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
+                    ]])
+                )
+            except Exception:
+                # Fallback if edit_message_text fails (e.g., original message has no text)
+                try:
+                    await query.edit_message_caption(
+                        caption=t(lang, instruction_key),
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
+                        ]])
+                    )
+                except Exception:
+                    # If both fail, send a new message
+                    await query.message.reply_text(
+                        t(lang, instruction_key),
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')
+                        ]])
+                    )
             return SELECTING_RECIPIENT
 
     elif message and message.text and context.user_data.get('waiting_for_recipient'):
@@ -613,7 +651,15 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     if not capsule_data:
         logger.error(f"No capsule data found for user {user.id}")
-        await query.edit_message_text(t(lang, 'error_occurred'))
+        try:
+            await query.edit_message_text(t(lang, 'error_occurred'))
+        except Exception:
+            # Fallback if edit_message_text fails (e.g., original message has no text)
+            try:
+                await query.edit_message_caption(caption=t(lang, 'error_occurred'))
+            except Exception:
+                # If both fail, send a new message
+                await query.message.reply_text(t(lang, 'error_occurred'))
         return SELECTING_ACTION
 
     # Generate UUID for capsule
@@ -657,12 +703,30 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
                 if not balance_result or balance_result[0] <= 0:
                     trans.rollback()
-                    await query.edit_message_text(
-                        t(lang, 'no_capsule_balance'),
-                        reply_markup=InlineKeyboardMarkup([[
-                            InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
-                        ]])
-                    )
+                    try:
+                        await query.edit_message_text(
+                            t(lang, 'no_capsule_balance'),
+                            reply_markup=InlineKeyboardMarkup([[
+                                InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                            ]])
+                        )
+                    except Exception:
+                        # Fallback if edit_message_text fails (e.g., original message has no text)
+                        try:
+                            await query.edit_message_caption(
+                                caption=t(lang, 'no_capsule_balance'),
+                                reply_markup=InlineKeyboardMarkup([[
+                                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                                ]])
+                            )
+                        except Exception:
+                            # If both fail, send a new message
+                            await query.message.reply_text(
+                                t(lang, 'no_capsule_balance'),
+                                reply_markup=InlineKeyboardMarkup([[
+                                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                                ]])
+                            )
                     return SELECTING_ACTION
 
                 # 2. Insert capsule
