@@ -589,9 +589,10 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
 
         success_msg = t(lang, "payment_success", capsules=capsules_to_add, type=payment_type)
 
+        # Use HTML parse mode to avoid markdown parsing issues with charge_id
         await message.reply_text(
-            success_msg + f"\n\n💳 {t(lang, 'transaction_id')}: `{charge_id}`",
-            parse_mode="Markdown",
+            success_msg + f"\n\n💳 {t(lang, 'transaction_id')}: <code>{charge_id}</code>",
+            parse_mode="HTML",
             reply_markup=InlineKeyboardMarkup([[
                 InlineKeyboardButton(t(lang, 'create_capsule'), callback_data='create'),
                 InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')
