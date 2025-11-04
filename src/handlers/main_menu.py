@@ -1,15 +1,16 @@
-# src/handlers/main_menu.py
-
+# src/handlers/main_menu.py (patch for Ideas button)
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from ..database import get_user_data
 from ..translations import t
 from ..config import SELECTING_ACTION, logger
 
+
 def get_main_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     """Generate main menu keyboard"""
     keyboard = [
         [InlineKeyboardButton(f"📝 {t(lang, 'create_capsule')}", callback_data='create')],
+        [InlineKeyboardButton(f"💡 {t(lang, 'ideas_button')}", callback_data='ideas')],
         [InlineKeyboardButton(f"📦 {t(lang, 'my_capsules')}", callback_data='capsules')],
         [InlineKeyboardButton(f"💎 {t(lang, 'subscription')}", callback_data='subscription')],
         [
@@ -22,6 +23,7 @@ def get_main_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     ]
     return InlineKeyboardMarkup(keyboard)
 
+
 async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle main menu button clicks"""
     from .create_capsule import start_create_capsule
@@ -30,6 +32,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     from .settings import show_settings
     from .start import show_main_menu_with_image
     from .legal_info import show_legal_info_menu
+    from .ideas import show_ideas_menu  # NEW
 
     query = update.callback_query
     if query:
@@ -50,6 +53,9 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Route to specific handlers
     if action == 'create':
         return await start_create_capsule(update, context)
+
+    elif action == 'ideas':  # NEW
+        return await show_ideas_menu(update, context)
 
     elif action == 'capsules':
         return await show_capsules(update, context)
@@ -75,7 +81,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                     context=context,
                     image_key='help',
                     caption=t(lang, 'help_text'),
-                    keyboard=InlineKeyboardMarkup([[
+                    keyboard=InlineKeyboardMarkup([[ 
                         InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
                     ]]),
                     parse_mode='HTML'
@@ -84,7 +90,7 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 # Fallback to text-only if image sending fails
                 await query.message.reply_text(
                     t(lang, 'help_text'),
-                    reply_markup=InlineKeyboardMarkup([[
+                    reply_markup=InlineKeyboardMarkup([[ 
                         InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
                     ]]),
                     parse_mode='HTML'
