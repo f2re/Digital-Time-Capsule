@@ -49,8 +49,38 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
                                   InlineKeyboardMarkup(keyboard))
         return SELECTING_ACTION
 
+    # Initialize capsule data structure
     context.user_data['capsule'] = {}
+    
+    # Check for prefill data from ideas module
+    prefill_text = context.user_data.get('prefill_text')
+    prefill_content_type = context.user_data.get('prefill_content_type', 'text')
+    prefill_recipient = context.user_data.get('prefill_recipient', 'self')
+    prefill_delivery_iso = context.user_data.get('prefill_delivery_iso')
+    
+    # If prefill data exists from ideas, set it in the capsule
+    if prefill_text:
+        context.user_data['capsule']['content_text'] = prefill_text
+        context.user_data['capsule']['content_type'] = prefill_content_type
+        context.user_data['capsule']['file_size'] = len(prefill_text.encode('utf-8'))
+        logger.info(f"Prefill content loaded from ideas for user {user.id}")
+        
+        # If delivery time was pre-filled, store it for later use
+        if prefill_delivery_iso:
+            from datetime import datetime
+            context.user_data['capsule']['prefill_delivery_time'] = datetime.fromisoformat(prefill_delivery_iso)
+        
+        # If recipient was pre-filled, store it for later use
+        if prefill_recipient:
+            context.user_data['capsule']['prefill_recipient'] = prefill_recipient
+
     logger.info(f"Starting capsule creation for user {user.id}")
+
+    # If prefill data exists, skip content type selection and go directly to time selection
+    if prefill_text:
+        # Since we already have text content and type, go directly to time selection
+        logger.info(f"Using prefill data, skipping content selection for user {user.id}")
+        return await show_time_selection(update, context)
 
     keyboard = [
         [InlineKeyboardButton(t(lang, 'content_text'), callback_data='type_text')],
@@ -168,8 +198,28 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
     user = update.effective_user
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
+    
+    # Check if prefill delivery time is available (from ideas module)
+    prefill_delivery_time = context.user_data.get('capsule', {}).get('prefill_delivery_time')
+    
+    if prefill_delivery_time:
+        # If prefill delivery time exists, use it directly and skip time selection
+        # Validate time limits based on subscription
+        from datetime import datetime, timezone
+        now = datetime.now(timezone.utc)
+        max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+        if (prefill_delivery_time - now).days > max_days:
+            keyboard = [[InlineKeyboardButton(t(lang, 'upgrade_premium'), callback_data='subscription')],
+                        [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
+            await send_menu_with_image(update, context, 'capsules', t(lang, 'time_limit_exceeded'), InlineKeyboardMarkup(keyboard))
+            return SELECTING_ACTION
 
-    # Build keyboard based on subscription status
+        context.user_data['capsule']['delivery_time'] = prefill_delivery_time
+        logger.info(f"Prefill delivery time used: {prefill_delivery_time} for user {user.id}")
+
+        return await ask_for_recipient(update, context)
+
+    # Build keyboard based on subscription status (normal flow)
     keyboard = [
         [InlineKeyboardButton(t(lang, 'time_1hour'), callback_data='time_1h'),
          InlineKeyboardButton(t(lang, 'time_1day'), callback_data='time_1d')],
@@ -237,6 +287,9 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
         return SELECTING_ACTION
 
     context.user_data['capsule']['delivery_time'] = delivery_time
+    # Clear any prefill delivery time if user chose a time option
+    if 'prefill_delivery_time' in context.user_data['capsule']:
+        del context.user_data['capsule']['prefill_delivery_time']
     logger.info(f"Delivery time set: {delivery_time} for user {user.id}")
 
     return await ask_for_recipient(update, context)
@@ -296,6 +349,9 @@ async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE)
                 return SELECTING_DATE
 
             context.user_data['capsule']['delivery_time'] = delivery_time
+            # Clear any prefill delivery time if user chose custom date
+            if 'prefill_delivery_time' in context.user_data['capsule']:
+                del context.user_data['capsule']['prefill_delivery_time']
             logger.info(f"Custom delivery time set: {delivery_time} (user's local: {local_delivery_time} in {user_timezone})")
 
             return await ask_for_recipient(update, context)
@@ -322,6 +378,16 @@ async def ask_for_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user = update.effective_user
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
+    
+    # Check if prefill recipient is available (from ideas module)
+    prefill_recipient = context.user_data.get('capsule', {}).get('prefill_recipient')
+    
+    if prefill_recipient == 'self':
+        # If prefill recipient is 'self', use it directly
+        context.user_data['capsule']['recipient_type'] = 'self'
+        context.user_data['capsule']['recipient_id'] = user.id
+        logger.info(f"Prefill recipient 'self' used for user {user.id}")
+        return await show_confirmation(update, context)
 
     keyboard = [
         [InlineKeyboardButton(t(lang, 'recipient_self'), callback_data='recipient_self')],
@@ -607,6 +673,17 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # Clean up user data
     context.user_data.pop('capsule', None)
+    
+    # Also clean up any prefill data set by ideas module to avoid conflicts in future uses
+    if 'prefill_text' in context.user_data:
+        del context.user_data['prefill_text']
+    if 'prefill_content_type' in context.user_data:
+        del context.user_data['prefill_content_type']
+    if 'prefill_recipient' in context.user_data:
+        del context.user_data['prefill_recipient']
+    if 'prefill_delivery_iso' in context.user_data:
+        del context.user_data['prefill_delivery_iso']
+        
     return SELECTING_ACTION
 
 
@@ -632,6 +709,16 @@ async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # Clean up user data
     context.user_data.pop('capsule', None)
+    
+    # Also clean up any prefill data set by ideas module to avoid conflicts in future uses
+    if 'prefill_text' in context.user_data:
+        del context.user_data['prefill_text']
+    if 'prefill_content_type' in context.user_data:
+        del context.user_data['prefill_content_type']
+    if 'prefill_recipient' in context.user_data:
+        del context.user_data['prefill_recipient']
+    if 'prefill_delivery_iso' in context.user_data:
+        del context.user_data['prefill_delivery_iso']
 
     keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
     message_text = t(lang, 'creation_cancelled')

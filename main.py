@@ -195,13 +195,13 @@ async def main():
 
             # Ideas States (NEW)
             SELECTING_IDEAS_CATEGORY: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_cat:)')
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_cat:|main_menu|cancel)$')
             ],
             SELECTING_IDEA_TEMPLATE: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_tpl:|ideas_menu|main_menu)$')
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_tpl:|ideas_menu|ideas_back|main_menu|cancel)$')
             ],
             EDITING_IDEA_CONTENT: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_back|ideas_menu)$'),
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_back|ideas_menu|main_menu|cancel)$'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_text_input),
             ],
 
