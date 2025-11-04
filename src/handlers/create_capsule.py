@@ -491,15 +491,15 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     # Validate capsule data
     if not capsule_data.get('delivery_time') or not capsule_data.get('content_type'):
         logger.error(f"Invalid capsule data for user {user.id}: {capsule_data}")
-        await query.edit_message_text(t(lang, 'error_occurred'))
-        return ConversationHandler.END
+        keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
+        await send_menu_with_image(update, context, 'capsules', t(lang, 'error_occurred'), InlineKeyboardMarkup(keyboard))
+        return SELECTING_ACTION
 
     capsule_uuid = str(uuid.uuid4())
     recipient_id_value = capsule_data.get('recipient_id')
     recipient_username_value = capsule_data.get('recipient_username')
     recipient_type = capsule_data['recipient_type']
-    needs_activation = (recipient_type == 'user' and recipient_username_value)
-
+    
     # Database transaction
     with engine.connect() as conn:
         trans = conn.begin()
@@ -508,10 +508,12 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             user_check = conn.execute(select(users.c.capsule_balance).where(users.c.id == userdata['id'])).first()
             if not user_check or user_check.capsule_balance <= 0:
                 trans.rollback()
-                await query.edit_message_text(t(lang, 'insufficient_balance'))
-                return ConversationHandler.END
+                keyboard = [[InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')],
+                           [InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
+                await send_menu_with_image(update, context, 'capsules', t(lang, 'insufficient_balance'), InlineKeyboardMarkup(keyboard))
+                return SELECTING_ACTION
 
-            # Insert capsule
+            # Insert capsule - REMOVED needs_activation field
             conn.execute(
                 insert(capsules).values(
                     user_id=userdata['id'],
@@ -525,7 +527,6 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     recipient_id=str(recipient_id_value) if recipient_id_value else None,
                     recipient_username=recipient_username_value,
                     delivery_time=capsule_data['delivery_time'],
-                    needs_activation=needs_activation,
                     delivered=False,
                     created_at=datetime.now(timezone.utc)
                 )
@@ -547,11 +548,15 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         except Exception as e:
             trans.rollback()
             logger.error(f"Error creating capsule for user {user.id}: {e}")
-            await query.edit_message_text(t(lang, 'error_occurred'))
-            return ConversationHandler.END
+            keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
+            await send_menu_with_image(update, context, 'capsules', t(lang, 'error_occurred'), InlineKeyboardMarkup(keyboard))
+            return SELECTING_ACTION
 
     # Generate success message
     delivery_time_str = capsule_data['delivery_time'].strftime("%d.%m.%Y %H:%M UTC")
+    
+    # Check if this is a username recipient (needs activation)
+    needs_activation = (recipient_type == 'user' and recipient_username_value)
     
     if needs_activation:
         # Generate invite link for username recipients
@@ -570,7 +575,9 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         success_text = t(lang, 'capsule_created', time=delivery_time_str)
 
     keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
-    await query.edit_message_text(success_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
+    
+    # FIXED: Use send_menu_with_image instead of edit_message_text to avoid "no text to edit" error
+    await send_menu_with_image(update, context, 'capsules', success_text, InlineKeyboardMarkup(keyboard))
 
     # Clean up user data
     context.user_data.pop('capsule', None)
@@ -604,7 +611,8 @@ async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     message_text = t(lang, 'creation_cancelled')
     
     if query:
-        await query.edit_message_text(message_text, reply_markup=InlineKeyboardMarkup(keyboard))
+        # FIXED: Use send_menu_with_image instead of edit_message_text
+        await send_menu_with_image(update, context, 'capsules', message_text, InlineKeyboardMarkup(keyboard))
     else:
         await update.message.reply_text(message_text, reply_markup=InlineKeyboardMarkup(keyboard))
     
