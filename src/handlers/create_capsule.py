@@ -1,4 +1,3 @@
-# src/handlers/create_capsule.py
 import base64
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -43,7 +42,11 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
     # Check storage quota
     can_create, error_msg = check_user_quota(user_data, 0)
     if not can_create and error_msg == "storage_limit_reached":
-        # ... (storage limit message)
+        storage_limit = FREE_STORAGE_LIMIT if user_data['subscription_status'] == FREE_TIER else PREMIUM_STORAGE_LIMIT
+        keyboard = [[InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
+        await send_menu_with_image(update, context, 'capsules', 
+                                  t(lang, 'storage_limit_reached', limit=f"{storage_limit // (1024*1024)} MB"), 
+                                  InlineKeyboardMarkup(keyboard))
         return SELECTING_ACTION
 
     context.user_data['capsule'] = {}
@@ -73,11 +76,19 @@ async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE
     context.user_data['capsule']['content_type'] = content_type
     logger.info(f"User {user.id} selected content type: {content_type}")
 
-    type_names = {'text': t(lang, 'content_text'), 'photo': t(lang, 'content_photo'), 'video': t(lang, 'content_video'), 'document': t(lang, 'content_document'), 'voice': t(lang, 'content_voice')}
+    type_names = {
+        'text': t(lang, 'content_text'), 
+        'photo': t(lang, 'content_photo'), 
+        'video': t(lang, 'content_video'), 
+        'document': t(lang, 'content_document'), 
+        'voice': t(lang, 'content_voice')
+    }
     instruction_text = t(lang, 'send_content', type=type_names.get(content_type, content_type))
 
-    await send_menu_with_image(update, context, 'capsules', instruction_text, InlineKeyboardMarkup([[InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]]))
+    keyboard = [[InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]]
+    await send_menu_with_image(update, context, 'capsules', instruction_text, InlineKeyboardMarkup(keyboard))
     return RECEIVING_CONTENT
+
 
 async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Receive capsule content"""
@@ -94,7 +105,6 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     logger.info(f"Receiving {content_type} content from user {user.id}")
 
-    # Simplified content handling logic...
     if content_type == 'text':
         if not message.text:
             await message.reply_text(t(lang, 'send_content', type=t(lang, 'content_text')))
@@ -104,24 +114,50 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     else:
         file = None
         ext = 'bin'
+        
         if content_type == 'photo' and message.photo:
             file = await message.photo[-1].get_file()
             ext = 'jpg'
         elif content_type == 'video' and message.video:
             file = await message.video.get_file()
             ext = 'mp4'
-        # ... other file types
+        elif content_type == 'document' and message.document:
+            file = await message.document.get_file()
+            ext = message.document.file_name.split('.')[-1] if message.document.file_name and '.' in message.document.file_name else 'bin'
+        elif content_type == 'voice' and message.voice:
+            file = await message.voice.get_file()
+            ext = 'ogg'
+            
         if not file:
             await message.reply_text(t(lang, 'send_content', type=t(lang, f'content_{content_type}')))
             return RECEIVING_CONTENT
 
-        # ... file processing and S3 upload ...
-        file_bytes = await file.download_as_bytearray()
-        s3_key, encrypted_key = encrypt_and_upload_file(bytes(file_bytes), ext)
-        context.user_data['capsule']['s3_key'] = s3_key
-        context.user_data['capsule']['file_key'] = encrypted_key
-        context.user_data['capsule']['file_size'] = file.file_size or 0
+        # Check file size before uploading
+        if file.file_size and file.file_size > 50 * 1024 * 1024:  # 50MB limit
+            await message.reply_text(t(lang, 'file_too_large'))
+            return RECEIVING_CONTENT
+            
+        # Check storage quota
+        user_data_fresh = get_user_data(user.id)
+        can_create, error_msg = check_user_quota(user_data_fresh, file.file_size or 0)
+        if not can_create:
+            if error_msg == "storage_limit_reached":
+                storage_limit = FREE_STORAGE_LIMIT if user_data_fresh['subscription_status'] == FREE_TIER else PREMIUM_STORAGE_LIMIT
+                await message.reply_text(t(lang, 'storage_limit_reached', limit=f"{storage_limit // (1024*1024)} MB"))
+            else:
+                await message.reply_text(t(lang, 'error_occurred'))
+            return ConversationHandler.END
 
+        try:
+            file_bytes = await file.download_as_bytearray()
+            s3_key, encrypted_key = encrypt_and_upload_file(bytes(file_bytes), ext)
+            context.user_data['capsule']['s3_key'] = s3_key
+            context.user_data['capsule']['file_key'] = encrypted_key
+            context.user_data['capsule']['file_size'] = file.file_size or 0
+        except Exception as e:
+            logger.error(f"Error uploading file for user {user.id}: {e}")
+            await message.reply_text(t(lang, 'error_occurred'))
+            return ConversationHandler.END
 
     await message.reply_text(t(lang, 'content_received'))
     return await show_time_selection(update, context)
@@ -133,16 +169,33 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
 
+    # Build keyboard based on subscription status
     keyboard = [
-        [InlineKeyboardButton(t(lang, 'time_1hour'), callback_data='time_1h'), InlineKeyboardButton(t(lang, 'time_1day'), callback_data='time_1d')],
-        [InlineKeyboardButton(t(lang, 'time_1week'), callback_data='time_1w'), InlineKeyboardButton(t(lang, 'time_1month'), callback_data='time_1m')],
-        [InlineKeyboardButton(t(lang, 'time_3months'), callback_data='time_3m'), InlineKeyboardButton(t(lang, 'time_6months'), callback_data='time_6m')],
-        [InlineKeyboardButton(t(lang, 'time_1year'), callback_data='time_1y')],
+        [InlineKeyboardButton(t(lang, 'time_1hour'), callback_data='time_1h'), 
+         InlineKeyboardButton(t(lang, 'time_1day'), callback_data='time_1d')],
+        [InlineKeyboardButton(t(lang, 'time_1week'), callback_data='time_1w'), 
+         InlineKeyboardButton(t(lang, 'time_1month'), callback_data='time_1m')],
+        [InlineKeyboardButton(t(lang, 'time_3months'), callback_data='time_3m'), 
+         InlineKeyboardButton(t(lang, 'time_6months'), callback_data='time_6m')],
+        [InlineKeyboardButton(t(lang, 'time_1year'), callback_data='time_1y')]
+    ]
+    
+    # Add premium options if user has premium
+    if user_data['subscription_status'] == PREMIUM_TIER:
+        keyboard.extend([
+            [InlineKeyboardButton(t(lang, 'time_5years'), callback_data='time_5y'), 
+             InlineKeyboardButton(t(lang, 'time_10years'), callback_data='time_10y')],
+            [InlineKeyboardButton(t(lang, 'time_25years'), callback_data='time_25y')]
+        ])
+    
+    keyboard.extend([
         [InlineKeyboardButton(t(lang, 'time_custom'), callback_data='time_custom')],
         [InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]
-    ]
+    ])
+    
     await send_menu_with_image(update, context, 'capsules', t(lang, 'select_time'), InlineKeyboardMarkup(keyboard))
     return SELECTING_TIME
+
 
 async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle time selection"""
@@ -154,30 +207,92 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
     time_option = query.data.replace('time_', '')
 
     if time_option == 'custom':
-        await send_menu_with_image(update, context, 'capsules', t(lang, 'enter_date'), InlineKeyboardMarkup([[InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]]))
+        keyboard = [[InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]]
+        await send_menu_with_image(update, context, 'capsules', t(lang, 'enter_date'), InlineKeyboardMarkup(keyboard))
         return SELECTING_DATE
 
     now = datetime.now(timezone.utc)
-    # ... (calculate delivery_time based on time_option)
     delivery_time = now
-    if time_option == '1h': delivery_time = now + timedelta(hours=1)
-    elif time_option == '1d': delivery_time = now + timedelta(days=1)
-    # ... other time options
+    
+    # Calculate delivery time based on selection
+    if time_option == '1h':
+        delivery_time = now + timedelta(hours=1)
+    elif time_option == '1d':
+        delivery_time = now + timedelta(days=1)
+    elif time_option == '1w':
+        delivery_time = now + timedelta(weeks=1)
+    elif time_option == '1m':
+        delivery_time = now + relativedelta(months=1)
+    elif time_option == '3m':
+        delivery_time = now + relativedelta(months=3)
+    elif time_option == '6m':
+        delivery_time = now + relativedelta(months=6)
+    elif time_option == '1y':
+        delivery_time = now + relativedelta(years=1)
+    elif time_option == '5y':
+        delivery_time = now + relativedelta(years=5)
+    elif time_option == '10y':
+        delivery_time = now + relativedelta(years=10)
+    elif time_option == '25y':
+        delivery_time = now + relativedelta(years=25)
+
+    # Validate time limits based on subscription
+    max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+    if (delivery_time - now).days > max_days:
+        keyboard = [[InlineKeyboardButton(t(lang, 'upgrade_premium'), callback_data='subscription')],
+                    [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
+        await send_menu_with_image(update, context, 'capsules', t(lang, 'time_limit_exceeded'), InlineKeyboardMarkup(keyboard))
+        return SELECTING_ACTION
 
     context.user_data['capsule']['delivery_time'] = delivery_time
-    logger.info(f"Delivery time set: {delivery_time}")
+    logger.info(f"Delivery time set: {delivery_time} for user {user.id}")
 
-    # This is the new entry point for recipient selection
     return await ask_for_recipient(update, context)
+
 
 async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle custom date input"""
-    # ... (implementation for custom date)
-    return await ask_for_recipient(update, context)
+    message = update.message
+    user = update.effective_user
+    user_data = get_user_data(user.id)
+    lang = user_data['language_code']
+
+    try:
+        from dateutil import parser
+        delivery_time = parser.parse(message.text, fuzzy=True)
+        
+        # Ensure timezone is set
+        if delivery_time.tzinfo is None:
+            delivery_time = delivery_time.replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc)
+        
+        # Check if date is in the future
+        if delivery_time <= now:
+            await message.reply_text(t(lang, 'date_must_be_future'))
+            return SELECTING_DATE
+            
+        # Check time limits
+        max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+        if (delivery_time - now).days > max_days:
+            keyboard = [[InlineKeyboardButton(t(lang, 'upgrade_premium'), callback_data='subscription')],
+                        [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
+            await send_menu_with_image(update, context, 'capsules', t(lang, 'time_limit_exceeded'), InlineKeyboardMarkup(keyboard))
+            return SELECTING_ACTION
+            
+        context.user_data['capsule']['delivery_time'] = delivery_time
+        logger.info(f"Custom delivery time set: {delivery_time} for user {user.id}")
+        
+        return await ask_for_recipient(update, context)
+        
+    except (ValueError, TypeError) as e:
+        logger.warning(f"Invalid date format from user {user.id}: {message.text}")
+        await message.reply_text(t(lang, 'invalid_date_format'))
+        return SELECTING_DATE
 
 
 # ============================================================================
-# NEW RECIPIENT FLOW
+# FIXED RECIPIENT FLOW - Updated for python-telegram-bot v20+
 # ============================================================================
 
 async def ask_for_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -186,8 +301,10 @@ async def ask_for_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
 
-    keyboard = [[InlineKeyboardButton(t(lang, 'recipient_self'), callback_data='recipient_self')],
-                [InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]]
+    keyboard = [
+        [InlineKeyboardButton(t(lang, 'recipient_self'), callback_data='recipient_self')],
+        [InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]
+    ]
 
     await send_menu_with_image(update, context, 'capsules', t(lang, 'forward_prompt'), InlineKeyboardMarkup(keyboard))
     return PROCESSING_RECIPIENT
@@ -200,44 +317,113 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
 
-    # Case 1: User sent a forwarded message (for group/channel)
-    if message and message.forward_from_chat:
-        chat = message.forward_from_chat
-        logger.info(f"User {user.id} forwarded message from chat {chat.id} ({chat.title})")
+    # FIXED: Use the new method to detect forwarded messages in v20+
+    # Check multiple ways to detect chat selection
+    chat_to_send = None
+    is_forwarded = False
+    
+    # Method 1: Check if message has forward_origin (new API v21+)
+    if hasattr(message, 'forward_origin') and message.forward_origin:
+        is_forwarded = True
+        # Get the original chat from forward_origin
+        if hasattr(message.forward_origin, 'chat'):
+            chat_to_send = message.forward_origin.chat
+        elif hasattr(message.forward_origin, 'sender_chat'):
+            chat_to_send = message.forward_origin.sender_chat
+    
+    # Method 2: Legacy support - check if forward_from_chat exists (v20.x)
+    elif hasattr(message, 'forward_from_chat') and message.forward_from_chat:
+        chat_to_send = message.forward_from_chat
+        is_forwarded = True
+    
+    # Method 3: Check if user replied to a message in current chat
+    elif message.reply_to_message and message.chat.type != 'private':
+        # User replied to a message in a group/channel, use current chat
+        chat_to_send = message.chat
+        is_forwarded = True
+    
+    # Method 4: Check if message is from a group/channel (not private)
+    elif message.chat.type in ['group', 'supergroup', 'channel'] and not message.text:
+        # If user sent any non-text message from group/channel, treat as selection
+        chat_to_send = message.chat
+        is_forwarded = True
 
+    # Case 1: Detected a chat (forwarded or group message)
+    if is_forwarded and chat_to_send:
+        logger.info(f"User {user.id} selected chat {chat_to_send.id} ({getattr(chat_to_send, 'title', 'Unknown')})")
+        
         try:
-            bot_member = await context.bot.get_chat_member(chat.id, context.bot.id)
-        except BadRequest:
-            logger.warning(f"Bot is not a member of chat {chat.id}")
-            await message.reply_text(t(lang, 'bot_not_in_chat', chat_title=chat.title))
-            return ConversationHandler.END
+            # Check if bot is a member and has permissions
+            bot_member = await context.bot.get_chat_member(chat_to_send.id, context.bot.id)
+            
+            if chat_to_send.type == 'channel':
+                # For channels, bot needs post permission
+                if not (hasattr(bot_member, 'can_post_messages') and bot_member.can_post_messages):
+                    logger.warning(f"Bot cannot post in channel {chat_to_send.id}")
+                    await message.reply_text(t(lang, 'no_post_rights', chat_title=getattr(chat_to_send, 'title', 'Unknown')))
+                    return PROCESSING_RECIPIENT
+                context.user_data['capsule']['recipient_type'] = 'channel'
+            else:
+                # For groups, bot just needs to be a member
+                context.user_data['capsule']['recipient_type'] = 'group'
+                
+        except BadRequest as e:
+            logger.warning(f"Bot access issue for chat {chat_to_send.id}: {e}")
+            await message.reply_text(t(lang, 'bot_not_in_chat', chat_title=getattr(chat_to_send, 'title', 'Unknown')))
+            return PROCESSING_RECIPIENT
+        except Exception as e:
+            logger.error(f"Error checking bot membership: {e}")
+            await message.reply_text(t(lang, 'error_occurred'))
+            return PROCESSING_RECIPIENT
 
-        if chat.type == 'channel':
-            if not bot_member.can_post_messages:
-                logger.warning(f"Bot cannot post in channel {chat.id}")
-                await message.reply_text(t(lang, 'no_post_rights', chat_title=chat.title))
-                return ConversationHandler.END
-            context.user_data['capsule']['recipient_type'] = 'channel'
-        else:
-            context.user_data['capsule']['recipient_type'] = 'group'
-
-        context.user_data['capsule']['recipient_id'] = chat.id
-        context.user_data['capsule']['recipient_name'] = chat.title # Store name for confirmation
+        context.user_data['capsule']['recipient_id'] = chat_to_send.id
+        context.user_data['capsule']['recipient_name'] = getattr(chat_to_send, 'title', f"Chat {chat_to_send.id}")
         return await show_confirmation(update, context)
 
     # Case 2: User sent a username
     elif message and message.text and message.text.startswith('@'):
-        username = message.text[1:].lower()
+        username = message.text[1:].lower().strip()
+        if not username:
+            await message.reply_text(t(lang, 'invalid_username'))
+            return PROCESSING_RECIPIENT
+            
         context.user_data['capsule']['recipient_type'] = 'user'
         context.user_data['capsule']['recipient_username'] = username
-        context.user_data['capsule']['recipient_id'] = None # Will be set on activation
+        context.user_data['capsule']['recipient_id'] = None  # Will be resolved when user starts bot
         logger.info(f"Capsule for @{username} - will activate when they start bot")
         return await show_confirmation(update, context)
 
-    # Case 3: Invalid input
+    # Case 3: User typed chat ID directly (for advanced users)
+    elif message and message.text and message.text.lstrip('-').isdigit():
+        try:
+            chat_id = int(message.text)
+            chat_info = await context.bot.get_chat(chat_id)
+            
+            # Check bot permissions
+            bot_member = await context.bot.get_chat_member(chat_id, context.bot.id)
+            
+            if chat_info.type == 'channel':
+                if not (hasattr(bot_member, 'can_post_messages') and bot_member.can_post_messages):
+                    await message.reply_text(t(lang, 'no_post_rights', chat_title=getattr(chat_info, 'title', 'Unknown')))
+                    return PROCESSING_RECIPIENT
+                context.user_data['capsule']['recipient_type'] = 'channel'
+            else:
+                context.user_data['capsule']['recipient_type'] = 'group'
+            
+            context.user_data['capsule']['recipient_id'] = chat_id
+            context.user_data['capsule']['recipient_name'] = getattr(chat_info, 'title', f"Chat {chat_id}")
+            return await show_confirmation(update, context)
+            
+        except (ValueError, BadRequest) as e:
+            logger.warning(f"Invalid chat ID {message.text} from user {user.id}: {e}")
+            await message.reply_text(t(lang, 'invalid_chat_id'))
+            return PROCESSING_RECIPIENT
+
+    # Case 4: Invalid input
     else:
         await message.reply_text(t(lang, 'forward_error'))
-        return PROCESSING_RECIPIENT # Stay in the same state
+        return PROCESSING_RECIPIENT
+
 
 async def process_self_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle the 'send to self' button."""
@@ -273,11 +459,21 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif recipient_type in ("group", "channel"):
         recipient_text = f"{capsule.get('recipient_name', 'Unknown')}"
 
-    time_text = capsule['delivery_time'].strftime("%d.%m.%Y %H:%M")
-    keyboard = [[InlineKeyboardButton(t(lang, "confirm_yes"), callback_data="confirm_yes")],
-                [InlineKeyboardButton(t(lang, "confirm_no"), callback_data="cancel")]]
+    # Format time display
+    time_text = capsule['delivery_time'].strftime("%d.%m.%Y %H:%M UTC")
+    
+    # Format content type
+    content_type_display = t(lang, f"content_{capsule.get('content_type', 'unknown')}")
+    
+    keyboard = [
+        [InlineKeyboardButton(t(lang, "confirm_yes"), callback_data="confirm_yes")],
+        [InlineKeyboardButton(t(lang, "confirm_no"), callback_data="cancel")]
+    ]
 
-    confirmation_text = t(lang, "confirm_capsule", type=capsule.get('content_type', 'unknown'), time=time_text, recipient=recipient_text)
+    confirmation_text = t(lang, "confirm_capsule", 
+                         type=content_type_display, 
+                         time=time_text, 
+                         recipient=recipient_text)
 
     await send_menu_with_image(update, context, 'capsules', confirmation_text, InlineKeyboardMarkup(keyboard))
     return CONFIRMING_CAPSULE
@@ -292,20 +488,30 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     lang = userdata['language_code']
     capsule_data = context.user_data.get('capsule', {})
 
-    # ... (Database transaction logic remains mostly the same)
-    # Important: Use recipient_name for the success message for groups/channels
-    
+    # Validate capsule data
+    if not capsule_data.get('delivery_time') or not capsule_data.get('content_type'):
+        logger.error(f"Invalid capsule data for user {user.id}: {capsule_data}")
+        await query.edit_message_text(t(lang, 'error_occurred'))
+        return ConversationHandler.END
+
     capsule_uuid = str(uuid.uuid4())
     recipient_id_value = capsule_data.get('recipient_id')
     recipient_username_value = capsule_data.get('recipient_username')
     recipient_type = capsule_data['recipient_type']
     needs_activation = (recipient_type == 'user' and recipient_username_value)
 
-    # Database insertion...
+    # Database transaction
     with engine.connect() as conn:
         trans = conn.begin()
         try:
-            # ... (check balance, insert capsule, update user stats)
+            # Check user balance again
+            user_check = conn.execute(select(users.c.capsule_balance).where(users.c.id == userdata['id'])).first()
+            if not user_check or user_check.capsule_balance <= 0:
+                trans.rollback()
+                await query.edit_message_text(t(lang, 'insufficient_balance'))
+                return ConversationHandler.END
+
+            # Insert capsule
             conn.execute(
                 insert(capsules).values(
                     user_id=userdata['id'],
@@ -319,33 +525,87 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                     recipient_id=str(recipient_id_value) if recipient_id_value else None,
                     recipient_username=recipient_username_value,
                     delivery_time=capsule_data['delivery_time'],
+                    needs_activation=needs_activation,
+                    delivered=False,
+                    created_at=datetime.now(timezone.utc)
                 )
             )
-            # ... (update user balance)
+
+            # Update user stats
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == userdata['id'])
+                .values(
+                    capsule_balance=users.c.capsule_balance - 1,
+                    total_storage_used=users.c.total_storage_used + capsule_data.get('file_size', 0)
+                )
+            )
+
             trans.commit()
+            logger.info(f"Capsule {capsule_uuid} created successfully for user {user.id}")
+
         except Exception as e:
             trans.rollback()
-            logger.error(f"Error creating capsule: {e}")
+            logger.error(f"Error creating capsule for user {user.id}: {e}")
             await query.edit_message_text(t(lang, 'error_occurred'))
             return ConversationHandler.END
 
-
-    delivery_time_str = capsule_data['delivery_time'].strftime("%d.%m.%Y %H:%M")
-    success_text = ""
-
+    # Generate success message
+    delivery_time_str = capsule_data['delivery_time'].strftime("%d.%m.%Y %H:%M UTC")
+    
     if needs_activation:
-        # ... (generate invite link message)
-        bot_username = (await context.bot.get_me()).username
+        # Generate invite link for username recipients
+        bot_info = await context.bot.get_me()
         encoded_uuid = base64.urlsafe_b64encode(capsule_uuid.encode()).decode().rstrip('=')
-        invite_link = f"https://t.me/{bot_username}?start=c_{encoded_uuid}"
-        success_text = t(lang, 'capsule_created_with_link', time=delivery_time_str, username=f"@{recipient_username_value}", invite_link=invite_link)
+        invite_link = f"https://t.me/{bot_info.username}?start=c_{encoded_uuid}"
+        success_text = t(lang, 'capsule_created_with_link', 
+                        time=delivery_time_str, 
+                        username=f"@{recipient_username_value}", 
+                        invite_link=invite_link)
     elif recipient_type in ('group', 'channel'):
-        success_text = t(lang, 'capsule_for_group_created', group_name=capsule_data.get('recipient_name', ''), delivery_time=delivery_time_str)
+        success_text = t(lang, 'capsule_for_group_created', 
+                        group_name=capsule_data.get('recipient_name', ''), 
+                        delivery_time=delivery_time_str)
     else:
         success_text = t(lang, 'capsule_created', time=delivery_time_str)
 
     keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
     await query.edit_message_text(success_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode='HTML')
 
+    # Clean up user data
     context.user_data.pop('capsule', None)
+    return SELECTING_ACTION
+
+
+async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Cancel capsule creation and clean up"""
+    query = update.callback_query
+    if query:
+        await query.answer()
+    
+    user = update.effective_user
+    user_data = get_user_data(user.id)
+    lang = user_data['language_code']
+
+    # Clean up any uploaded files if creation was cancelled
+    capsule_data = context.user_data.get('capsule', {})
+    if capsule_data.get('s3_key'):
+        try:
+            from ..s3_utils import delete_from_s3
+            delete_from_s3(capsule_data['s3_key'])
+            logger.info(f"Cleaned up S3 file {capsule_data['s3_key']} for cancelled capsule")
+        except Exception as e:
+            logger.warning(f"Failed to clean up S3 file: {e}")
+
+    # Clean up user data
+    context.user_data.pop('capsule', None)
+    
+    keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
+    message_text = t(lang, 'creation_cancelled')
+    
+    if query:
+        await query.edit_message_text(message_text, reply_markup=InlineKeyboardMarkup(keyboard))
+    else:
+        await update.message.reply_text(message_text, reply_markup=InlineKeyboardMarkup(keyboard))
+    
     return SELECTING_ACTION
