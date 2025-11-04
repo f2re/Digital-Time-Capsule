@@ -1,9 +1,103 @@
-# src/translations.py (patched excerpt for Ideas feature)
+# src/translations.py
 
 TRANSLATIONS = {
     'ru': {
-        # ... existing keys ...
-        # Ideas UI
+        # Main UI
+        'start_message': 'Добро пожаловать в Digital Time Capsule! 🕰\n\nОтправляйте сообщения в будущее себе или близким.\n\nВыберите язык / Choose language:',
+        'language_selected': 'Язык установлен: русский 🇷🇺',
+        'main_menu': 'Главное меню',
+        'back': 'Назад',
+        'cancel': 'Отмена',
+        'yes': 'Да',
+        'no': 'Нет',
+        
+        # Menu items
+        'create_capsule': 'Создать капсулу',
+        'my_capsules': 'Мои капсулы', 
+        'subscription': 'Подписка',
+        'settings': 'Настройки',
+        'help': 'Помощь',
+        
+        # Content types
+        'content_text': 'Текст',
+        'content_photo': 'Фото',
+        'content_video': 'Видео', 
+        'content_document': 'Документ',
+        'content_voice': 'Голосовое сообщение',
+        
+        # Time options
+        'time_1hour': '1 час',
+        'time_1day': '1 день',
+        'time_1week': '1 неделя',
+        'time_1month': '1 месяц',
+        'time_3months': '3 месяца',
+        'time_6months': '6 месяцев',
+        'time_1year': '1 год',
+        'time_5years': '5 лет',
+        'time_10years': '10 лет',
+        'time_25years': '25 лет',
+        'time_custom': 'Другое время',
+        
+        # Recipients
+        'recipient_self': 'Себе',
+        'forward_prompt': 'Перешлите сообщение из чата/канала или напишите @username получателя:',
+        'forward_error': 'Пожалуйста, перешлите сообщение из чата или напишите @username',
+        
+        # Confirmation
+        'confirm_capsule': 'Подтвердите создание капсулы:\n\n📝 Тип: {type}\n⏰ Доставка: {time}\n👤 Получатель: {recipient}',
+        'confirm_yes': 'Создать',
+        'confirm_no': 'Отменить',
+        
+        # Creation flow
+        'select_content_type': 'Выберите тип содержимого капсулы:',
+        'send_content': 'Отправьте {type}:',
+        'content_received': 'Содержимое получено! ✅',
+        'select_time': 'Выберите время доставки:',
+        'enter_date': 'Введите дату и время в формате:\n\nДД.ММ.ГГГГ ЧЧ:ММ\n\nНапример: 25.12.2024 18:00',
+        
+        # Success/Error messages  
+        'capsule_created': 'Капсула создана! 🎉\nДоставка: {time}',
+        'capsule_created_with_link': 'Капсула создана! 🎉\nПолучатель: {username}\nДоставка: {time}\n\nОтправьте получателю эту ссылку:\n{invite_link}',
+        'capsule_for_group_created': 'Капсула для группы "{group_name}" создана! 🎉\nДоставка: {delivery_time}',
+        'creation_cancelled': 'Создание капсулы отменено.',
+        'error_occurred': 'Произошла ошибка. Попробуйте еще раз.',
+        'insufficient_balance': 'Недостаточно капсул! Купите капсулы в разделе "Подписка".',
+        'no_capsule_balance': 'У вас нет доступных капсул! Купите их в разделе "Подписка".',
+        
+        # Subscription
+        'buy_capsules': 'Купить капсулы',
+        'upgrade_premium': 'Оформить Premium',
+        'subscription_menu': 'Управление подпиской',
+        
+        # Storage
+        'storage_limit_reached': 'Достигнут лимит хранилища ({limit})! Удалите старые капсулы или оформите Premium.',
+        'file_too_large': 'Файл слишком большой! Максимум 50 МБ.',
+        
+        # Time limits
+        'time_limit_exceeded': 'Превышен лимит времени! Оформите Premium для доставки до 25 лет.',
+        'date_must_be_future': 'Дата должна быть в будущем!',
+        'invalid_date_format': 'Неверный формат даты! Используйте ДД.ММ.ГГГГ ЧЧ:ММ',
+        
+        # Validation
+        'invalid_username': 'Неверное имя пользователя!',
+        'invalid_chat_id': 'Неверный ID чата!',
+        'bot_not_in_chat': 'Бот не является участником чата "{chat_title}"',
+        'no_post_rights': 'У бота нет прав на отправку сообщений в канал "{chat_title}"',
+        
+        # DELIVERY MESSAGES - FIXED TRANSLATIONS
+        'capsule_delivered_title': 'Капсула времени доставлена!',
+        'from': 'От',
+        'created': 'Создано',
+        'capsule_has_media': '[Медиафайл]',
+        
+        # Delivery notifications
+        'delivery_pending_notification': 'Капсула ожидает активации пользователем {username}.\n\nОтправьте ему эту ссылку:\n{invite_link}',
+        'delivery_failed_blocked': 'Не удалось доставить капсулу: пользователь заблокировал бота.',
+        'delivery_failed_invalid_chat': 'Не удалось доставить капсулу: чат не найден или недоступен.',
+        'delivery_failed_error': 'Ошибка при доставке капсулы.',
+        'group_not_member': 'Не удалось доставить капсулу: бот больше не участник группы.',
+        
+        # Ideas UI (existing)
         'ideas_button': 'Идеи',
         'ideas_menu_title': 'Выберите категорию идей',
         'ideas_select_template_from': 'Выберите идею из категории',
@@ -12,95 +106,113 @@ TRANSLATIONS = {
         'ideas_use_template': 'Использовать',
         'ideas_edit_text': 'Редактировать текст',
         'ideas_enter_text': 'Отправьте текст для капсулы:',
+        
         # Categories
         'ideas_category_self_motivation': 'Самомотивация',
-        'ideas_category_holidays': 'Праздники',
+        'ideas_category_holidays': 'Праздники', 
         'ideas_category_daily_reflection': 'Подведение итогов',
         'ideas_category_relationships': 'Отношения',
         'ideas_category_goals_plans': 'Цели и планы',
         'ideas_category_memories': 'Воспоминания',
-        # Templates (subset samples; complete similarly for all)
-        'idea_morning_motivation_title': 'Утренняя мотивация',
-        'idea_morning_motivation_text': 'Доброе утро, будущий я! Напомни себе, зачем ты начал этот путь и какие шаги ты сделаешь сегодня.',
-        'idea_morning_motivation_hints': '• 1 конкретная цель на сегодня\n• Почему это важно\n• Что поможет не сдаться',
-        'idea_goal_achievement_title': 'Достижение целей',
-        'idea_goal_achievement_text': 'Запиши свою главную цель на ближайшие 3 месяца и три шага к ней. Представь момент, когда ты её достиг.',
-        'idea_goal_achievement_hints': '• 3 шага\n• Метрика прогресса\n• Награда себе',
-        'idea_overcoming_challenges_title': 'Преодоление трудностей',
-        'idea_overcoming_challenges_text': 'Опиши текущую сложность и что ты уже сделал. Что сработало? Что попробуешь дальше?',
-        'idea_overcoming_challenges_hints': '• 1 урок\n• 1 действие на завтра\n• Кому написать за советом',
-        'idea_dream_reminder_title': 'Напоминание о мечтах',
-        'idea_dream_reminder_text': 'Расскажите себе о мечте, которую давно носите в сердце. Какой первый шаг сделаешь в ближайшую неделю?',
-        'idea_dream_reminder_hints': '• Зачем это тебе\n• Первый шаг\n• Потенциальная поддержка',
-
-        'idea_new_year_wishes_title': 'Новогодние пожелания',
-        'idea_new_year_wishes_text': 'Напиши себе новогоднее послание: чему ты научился в этом году и что берёшь с собой в следующий?',
-        'idea_new_year_wishes_hints': '• 3 итога года\n• 3 намерения\n• 1 тёплая благодарность',
-        'idea_birthday_future_title': 'Послание ко дню рождения',
-        'idea_birthday_future_text': 'Пожелай себе на следующий день рождения то, что действительно важно. Что станет признаком хорошего года?',
-        'idea_birthday_future_hints': '• 1 привычка\n• 1 навык\n• 1 человек, с кем сблизиться',
-        'idea_anniversary_message_title': 'Годовщина',
-        'idea_anniversary_message_text': 'Запиши, за что ты благодарен отношениям/проекту сегодня, и чего хочешь к следующей годовщине.',
-        'idea_anniversary_message_hints': '• 3 благодарности\n• 1 ритуал\n• 1 общая цель',
-        'idea_pro_day_title': 'Профессиональный праздник',
-        'idea_pro_day_text': 'Опиши, чем ты гордишься в своей работе и чему хочешь научиться к следующему году.',
-        'idea_pro_day_hints': '• 1 компетенция\n• 1 проект\n• 1 наставник',
-
-        'idea_evening_summary_title': 'Итоги дня',
-        'idea_evening_summary_text': 'Коротко подведи итоги вечера: что было лучшим моментом и чему ты научился сегодня?',
-        'idea_evening_summary_hints': '• 1 момент\n• 1 урок\n• 1 действие завтра',
-        'idea_gratitude_note_title': 'Заметка благодарности',
-        'idea_gratitude_note_text': 'Запиши три вещи, за которые ты благодарен сегодня — людям, событиям или себе.',
-        'idea_gratitude_note_hints': '• 3 благодарности\n• Почему это важно\n• Как закрепить',
-        'idea_day_highlights_title': 'Лучшее за неделю',
-        'idea_day_highlights_text': 'Выдели главное за неделю: достижения, открытия и моменты, которые хочется сохранить.',
-        'idea_day_highlights_hints': '• 3 момента\n• 1 инсайт\n• 1 план',
-        'idea_lesson_learned_title': 'Урок из опыта',
-        'idea_lesson_learned_text': 'Опиши один урок, который ты усвоил, и как это изменит твои действия дальше.',
-        'idea_lesson_learned_hints': '• Ситуация\n• Вывод\n• Новое правило',
-
-        'idea_letter_to_loved_title': 'Письмо любимому человеку',
-        'idea_letter_to_loved_text': 'Напиши тёплое послание: за что ты благодарен и что хочешь подарить вашим отношениям.',
-        'idea_letter_to_loved_hints': '• 3 «спасибо»\n• Общая мечта\n• Маленький сюрприз',
-        'idea_thanks_to_parents_title': 'Благодарность родителям',
-        'idea_thanks_to_parents_text': 'Скажи родителям спасибо: что ценишь больше всего и какой момент вспоминаешь с теплом.',
-        'idea_thanks_to_parents_hints': '• 1 воспоминание\n• 1 благодарность\n• 1 приглашение',
-        'idea_message_to_kids_title': 'Послание детям',
-        'idea_message_to_kids_text': 'Оставь детям послание о ценностях и мечтах. Что ты хочешь, чтобы они запомнили?',
-        'idea_message_to_kids_hints': '• 3 ценности\n• 1 история\n• 1 пожелание',
-        'idea_friendly_note_title': 'Записка другу',
-        'idea_friendly_note_text': 'Напомни другу, почему он тебе важен, и предложи совместный план.',
-        'idea_friendly_note_hints': '• 1 общая цель\n• Когда встретиться\n• Идея мини-проекта',
-
-        'idea_progress_check_title': 'Проверка прогресса',
-        'idea_progress_check_text': 'Оцени прогресс по главной цели и реши, что скорректировать в следующем квартале.',
-        'idea_progress_check_hints': '• Что работает\n• Что мешает\n• 1 изменение',
-        'idea_plans_reminder_title': 'Напоминание о планах',
-        'idea_plans_reminder_text': 'Запиши планы на год вперёд и ключевые вехи.',
-        'idea_plans_reminder_hints': '• 3 вехи\n• Сроки\n• Ресурсы',
-        'idea_change_motivation_title': 'Мотивация к изменениям',
-        'idea_change_motivation_text': 'Опиши, зачем тебе важны перемены, и какие первые шаги ты сделаешь в этом месяце.',
-        'idea_change_motivation_hints': '• Причина\n• 2 шага\n• Награда',
-        'idea_career_goals_title': 'Карьерные цели',
-        'idea_career_goals_text': 'Определи одну карьерную цель и шаги, которые приблизят тебя к ней за 6 месяцев.',
-        'idea_career_goals_hints': '• Навык\n• Проект\n• Контакт',
-
-        'idea_save_the_moment_title': 'Сохранить момент',
-        'idea_save_the_moment_text': 'Опиши момент, который хочешь запомнить, и почему он важен.',
-        'idea_save_the_moment_hints': '• Что произошло\n• Что почувствовал\n• Что значит',
-        'idea_today_mood_title': 'Настроение сегодня',
-        'idea_today_mood_text': 'Опиши текущее настроение и что на него повлияло.',
-        'idea_today_mood_hints': '• 3 фактора\n• 1 вывод\n• 1 действие',
-        'idea_important_event_title': 'Важное событие',
-        'idea_important_event_text': 'Расскажи о важном событии, которое хочется вспомнить через 5 лет.',
-        'idea_important_event_hints': '• Кто был рядом\n• Что изменилось\n• Чему научило',
-        'idea_wisdom_note_title': 'Заметка мудрости',
-        'idea_wisdom_note_text': 'Запиши мысль, к которой хочешь вернуться, и контекст, где она родилась.',
-        'idea_wisdom_note_hints': '• Мысль\n• Контекст\n• Применение',
     },
+    
     'en': {
-        # ... existing keys ...
-        # Ideas UI
+        # Main UI
+        'start_message': 'Welcome to Digital Time Capsule! 🕰\n\nSend messages to the future for yourself or loved ones.\n\nChoose language:',
+        'language_selected': 'Language set: English 🇺🇸',
+        'main_menu': 'Main Menu',
+        'back': 'Back',
+        'cancel': 'Cancel',
+        'yes': 'Yes',
+        'no': 'No',
+        
+        # Menu items
+        'create_capsule': 'Create Capsule',
+        'my_capsules': 'My Capsules',
+        'subscription': 'Subscription',
+        'settings': 'Settings', 
+        'help': 'Help',
+        
+        # Content types
+        'content_text': 'Text',
+        'content_photo': 'Photo',
+        'content_video': 'Video',
+        'content_document': 'Document', 
+        'content_voice': 'Voice Message',
+        
+        # Time options
+        'time_1hour': '1 Hour',
+        'time_1day': '1 Day',
+        'time_1week': '1 Week',
+        'time_1month': '1 Month',
+        'time_3months': '3 Months',
+        'time_6months': '6 Months', 
+        'time_1year': '1 Year',
+        'time_5years': '5 Years',
+        'time_10years': '10 Years',
+        'time_25years': '25 Years',
+        'time_custom': 'Custom Time',
+        
+        # Recipients
+        'recipient_self': 'To Myself',
+        'forward_prompt': 'Forward a message from chat/channel or type @username of recipient:',
+        'forward_error': 'Please forward a message from chat or type @username',
+        
+        # Confirmation 
+        'confirm_capsule': 'Confirm capsule creation:\n\n📝 Type: {type}\n⏰ Delivery: {time}\n👤 Recipient: {recipient}',
+        'confirm_yes': 'Create',
+        'confirm_no': 'Cancel',
+        
+        # Creation flow
+        'select_content_type': 'Select capsule content type:',
+        'send_content': 'Send {type}:',
+        'content_received': 'Content received! ✅',
+        'select_time': 'Select delivery time:',
+        'enter_date': 'Enter date and time in format:\n\nDD.MM.YYYY HH:MM\n\nExample: 25.12.2024 18:00',
+        
+        # Success/Error messages
+        'capsule_created': 'Capsule created! 🎉\nDelivery: {time}',
+        'capsule_created_with_link': 'Capsule created! 🎉\nRecipient: {username}\nDelivery: {time}\n\nSend this link to recipient:\n{invite_link}',
+        'capsule_for_group_created': 'Capsule for group "{group_name}" created! 🎉\nDelivery: {delivery_time}',
+        'creation_cancelled': 'Capsule creation cancelled.',
+        'error_occurred': 'An error occurred. Please try again.',
+        'insufficient_balance': 'Insufficient capsules! Buy capsules in "Subscription" section.',
+        'no_capsule_balance': 'You have no available capsules! Buy them in "Subscription" section.',
+        
+        # Subscription
+        'buy_capsules': 'Buy Capsules',
+        'upgrade_premium': 'Upgrade to Premium',
+        'subscription_menu': 'Manage Subscription',
+        
+        # Storage
+        'storage_limit_reached': 'Storage limit reached ({limit})! Delete old capsules or upgrade to Premium.',
+        'file_too_large': 'File too large! Maximum 50 MB.',
+        
+        # Time limits
+        'time_limit_exceeded': 'Time limit exceeded! Upgrade to Premium for delivery up to 25 years.',
+        'date_must_be_future': 'Date must be in the future!',
+        'invalid_date_format': 'Invalid date format! Use DD.MM.YYYY HH:MM',
+        
+        # Validation
+        'invalid_username': 'Invalid username!',
+        'invalid_chat_id': 'Invalid chat ID!',
+        'bot_not_in_chat': 'Bot is not a member of chat "{chat_title}"',
+        'no_post_rights': 'Bot has no rights to post messages in channel "{chat_title}"',
+        
+        # DELIVERY MESSAGES - FIXED TRANSLATIONS
+        'capsule_delivered_title': 'Time Capsule Delivered!',
+        'from': 'From',
+        'created': 'Created',
+        'capsule_has_media': '[Media File]',
+        
+        # Delivery notifications
+        'delivery_pending_notification': 'Capsule is waiting for activation by user {username}.\n\nSend them this link:\n{invite_link}',
+        'delivery_failed_blocked': 'Failed to deliver capsule: user blocked the bot.',
+        'delivery_failed_invalid_chat': 'Failed to deliver capsule: chat not found or unavailable.',
+        'delivery_failed_error': 'Error delivering capsule.',
+        'group_not_member': 'Failed to deliver capsule: bot is no longer a group member.',
+        
+        # Ideas UI (existing)
         'ideas_button': 'Ideas',
         'ideas_menu_title': 'Choose an ideas category',
         'ideas_select_template_from': 'Choose a template from',
@@ -109,6 +221,7 @@ TRANSLATIONS = {
         'ideas_use_template': 'Use template',
         'ideas_edit_text': 'Edit text',
         'ideas_enter_text': 'Send text for the capsule:',
+        
         # Categories
         'ideas_category_self_motivation': 'Self-motivation',
         'ideas_category_holidays': 'Holidays',
@@ -116,83 +229,26 @@ TRANSLATIONS = {
         'ideas_category_relationships': 'Relationships',
         'ideas_category_goals_plans': 'Goals & plans',
         'ideas_category_memories': 'Memories',
-        # Templates (subset samples; complete similarly for all)
-        'idea_morning_motivation_title': 'Morning motivation',
-        'idea_morning_motivation_text': "Good morning, future me! Remind yourself why you started and what you'll do today.",
-        'idea_morning_motivation_hints': '• 1 concrete goal today\n• Why it matters\n• How not to give up',
-        'idea_goal_achievement_title': 'Goal achievement',
-        'idea_goal_achievement_text': 'Write your main 3-month goal and three steps toward it. Imagine the moment you achieve it.',
-        'idea_goal_achievement_hints': '• 3 steps\n• Progress metric\n• Reward yourself',
-        'idea_overcoming_challenges_title': 'Overcoming challenges',
-        'idea_overcoming_challenges_text': 'Describe the challenge and what you already tried. What worked? What will you try next?',
-        'idea_overcoming_challenges_hints': '• 1 lesson\n• 1 action for tomorrow\n• Who to ask for advice',
-        'idea_dream_reminder_title': 'Dream reminder',
-        'idea_dream_reminder_text': 'Write about a dream you carry. What first step will you take in the coming week?',
-        'idea_dream_reminder_hints': '• Why it matters\n• First step\n• Support you can get',
-
-        'idea_new_year_wishes_title': 'New Year wishes',
-        'idea_new_year_wishes_text': 'Write a New Year note to yourself: what did you learn this year and what will you carry into the next?',
-        'idea_new_year_wishes_hints': '• 3 year highlights\n• 3 intentions\n• 1 warm gratitude',
-        'idea_birthday_future_title': 'Birthday message',
-        'idea_birthday_future_text': 'Wish yourself what truly matters for your next birthday. What will mark a good year?',
-        'idea_birthday_future_hints': '• 1 habit\n• 1 skill\n• 1 relationship to deepen',
-        'idea_anniversary_message_title': 'Anniversary',
-        'idea_anniversary_message_text': 'Write what you appreciate today about your relationship/project and what you want by the next anniversary.',
-        'idea_anniversary_message_hints': '• 3 gratitudes\n• 1 ritual\n• 1 shared goal',
-        'idea_pro_day_title': 'Professional day',
-        'idea_pro_day_text': 'Describe what you are proud of in your work and what you will learn by next year.',
-        'idea_pro_day_hints': '• 1 competency\n• 1 project\n• 1 mentor',
-
-        'idea_evening_summary_title': 'Evening summary',
-        'idea_evening_summary_text': 'Briefly sum up the evening: best moment and what you learned today.',
-        'idea_evening_summary_hints': '• 1 moment\n• 1 lesson\n• 1 action tomorrow',
-        'idea_gratitude_note_title': 'Gratitude note',
-        'idea_gratitude_note_text': 'Write three things you are grateful for today — people, events, or yourself.',
-        'idea_gratitude_note_hints': '• 3 gratitudes\n• Why it matters\n• How to reinforce',
-        'idea_day_highlights_title': 'Week highlights',
-        'idea_day_highlights_text': 'Highlight the week: achievements, discoveries, and moments to save.',
-        'idea_day_highlights_hints': '• 3 moments\n• 1 insight\n• 1 plan',
-        'idea_lesson_learned_title': 'Lesson learned',
-        'idea_lesson_learned_text': 'Describe one lesson you learned and how it will change your actions.',
-        'idea_lesson_learned_hints': '• Situation\n• Conclusion\n• New rule',
-
-        'idea_letter_to_loved_title': 'Letter to a loved one',
-        'idea_letter_to_loved_text': 'Write a warm note: what you are grateful for and what you want to bring to your relationship.',
-        'idea_letter_to_loved_hints': '• 3 thank-yous\n• Shared dream\n• Small surprise',
-        'idea_thanks_to_parents_title': 'Thanks to parents',
-        'idea_thanks_to_parents_text': 'Thank your parents: what you value most and a moment you remember with warmth.',
-        'idea_thanks_to_parents_hints': '• 1 memory\n• 1 gratitude\n• 1 invitation',
-        'idea_message_to_kids_title': 'Message to kids',
-        'idea_message_to_kids_text': 'Leave a message about values and dreams. What do you want them to remember?',
-        'idea_message_to_kids_hints': '• 3 values\n• 1 story\n• 1 wish',
-        'idea_friendly_note_title': 'Note to a friend',
-        'idea_friendly_note_text': 'Remind your friend why they matter and propose a plan together.',
-        'idea_friendly_note_hints': '• 1 shared goal\n• When to meet\n• Mini-project idea',
-
-        'idea_progress_check_title': 'Progress check',
-        'idea_progress_check_text': 'Assess progress on your main goal and decide what to adjust next quarter.',
-        'idea_progress_check_hints': '• What works\n• What blocks\n• 1 change',
-        'idea_plans_reminder_title': 'Plans reminder',
-        'idea_plans_reminder_text': 'Write plans for the year ahead and key milestones.',
-        'idea_plans_reminder_hints': '• 3 milestones\n• Deadlines\n• Resources',
-        'idea_change_motivation_title': 'Change motivation',
-        'idea_change_motivation_text': 'Explain why changes matter and the first steps this month.',
-        'idea_change_motivation_hints': '• Reason\n• 2 steps\n• Reward',
-        'idea_career_goals_title': 'Career goals',
-        'idea_career_goals_text': 'Define one career goal and steps to move toward it in 6 months.',
-        'idea_career_goals_hints': '• Skill\n• Project\n• Contact',
-
-        'idea_save_the_moment_title': 'Save the moment',
-        'idea_save_the_moment_text': 'Describe a moment you want to remember and why it matters.',
-        'idea_save_the_moment_hints': '• What happened\n• What you felt\n• What it means',
-        'idea_today_mood_title': 'Today’s mood',
-        'idea_today_mood_text': 'Describe your current mood and what influenced it.',
-        'idea_today_mood_hints': '• 3 factors\n• 1 takeaway\n• 1 action',
-        'idea_important_event_title': 'Important event',
-        'idea_important_event_text': 'Tell about an important event to recall in 5 years.',
-        'idea_important_event_hints': '• Who was there\n• What changed\n• What it taught you',
-        'idea_wisdom_note_title': 'Note of wisdom',
-        'idea_wisdom_note_text': 'Write a thought you want to revisit and the context it came from.',
-        'idea_wisdom_note_hints': '• Thought\n• Context\n• Application',
     }
 }
+
+def t(lang: str, key: str, **kwargs) -> str:
+    """Get translated string with optional formatting"""
+    try:
+        if lang not in TRANSLATIONS:
+            lang = 'en'  # Fallback to English
+            
+        translation = TRANSLATIONS[lang].get(key, TRANSLATIONS['en'].get(key, key))
+        
+        if kwargs:
+            return translation.format(**kwargs)
+        return translation
+        
+    except Exception as e:
+        print(f"Translation error for key '{key}' in lang '{lang}': {e}")
+        return key  # Return key as fallback
+
+
+# Helper function to get available languages
+def get_available_languages():
+    return list(TRANSLATIONS.keys())
