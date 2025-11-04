@@ -14,7 +14,7 @@ from telegram.ext import (
 
 from src.config import (
     BOT_TOKEN, SELECTING_LANG, SELECTING_ACTION, SELECTING_CONTENT_TYPE,
-    RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
+    RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, PROCESSING_RECIPIENT,
     CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS,
     SELECTING_PAYMENT_METHOD, SELECTING_CURRENCY, MANAGING_LEGAL_INFO,
     logger
@@ -33,9 +33,15 @@ from src.handlers.main_menu import main_menu_handler
 
 # Capsule Creation Handlers
 from src.handlers.create_capsule import (
-    select_content_type, receive_content, select_time,
-    select_custom_date, select_recipient, confirm_capsule,
-    start_create_capsule, show_user_list
+    start_create_capsule,
+    select_content_type,
+    receive_content,
+    select_time,
+    select_custom_date,
+    ask_for_recipient,
+    process_recipient,
+    process_self_recipient,
+    confirm_capsule,
 )
 
 # Capsule Management Handlers
@@ -208,11 +214,9 @@ async def main():
                 CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
             ],
 
-            SELECTING_RECIPIENT: [
-                CallbackQueryHandler(select_recipient, pattern='^recipient_'),
-                CallbackQueryHandler(select_recipient, pattern='^select_user_'),
-                CallbackQueryHandler(show_user_list, pattern='^recipient_user_list$'),
-                MessageHandler(filters.TEXT & ~filters.COMMAND, select_recipient),
+            PROCESSING_RECIPIENT: [
+                CallbackQueryHandler(process_self_recipient, pattern='^recipient_self$'),
+                MessageHandler(filters.FORWARDED | (filters.TEXT & ~filters.COMMAND), process_recipient),
                 CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
             ],
 

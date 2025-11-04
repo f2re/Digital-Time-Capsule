@@ -178,6 +178,13 @@ TRANSLATIONS = {
         'capsule_already_activated': '⚠️ Эта капсула уже активирована или доставлена',
         'capsule_not_found': '❌ Капсула не найдена или срок действия ссылки истёк',
         'pending_capsules': '📬 У вас {count} ожидающих капсул',
+
+        # New keys for group/channel flow
+        'forward_prompt': '👤 Кому отправить капсулу?\n\nПерешлите мне любое сообщение из нужной группы или канала, или просто введите @username пользователя.',
+        'forward_error': '❌ Пожалуйста, перешлите сообщение из группы/канала или введите @username. Обычные сообщения здесь не принимаются.',
+        'bot_not_in_chat': "❌ Я не состою в этом чате. Пожалуйста, сначала добавьте меня в '{chat_title}', а затем попробуйте снова.",
+        'no_post_rights': "❌ Я добавлен в канал '{chat_title}', но у меня нет прав на отправку сообщений. Пожалуйста, назначьте меня администратором с правом 'Публикация сообщений'.",
+
         # Delivery messages
         'capsule_delivered_title': 'Капсула времени доставлена!',
         'from': 'От',
@@ -447,6 +454,12 @@ If you have payment issues:
         'capsule_already_activated': '⚠️ This capsule is already activated or delivered',
         'capsule_not_found': '❌ Capsule not found or invitation link expired',
         'pending_capsules': '📬 You have {count} pending capsules',
+
+        # New keys for group/channel flow
+        'forward_prompt': '👤 Who should receive the capsule?\n\nPlease forward any message from the desired group or channel, or enter a @username.',
+        'forward_error': '❌ Please forward a message from a group/channel or enter a @username. Regular messages are not accepted here.',
+        'bot_not_in_chat': "❌ I am not a member of this chat. Please add me to '{chat_title}' first, then try again.",
+        'no_post_rights': "❌ I am in the channel '{chat_title}', but I don't have permission to post messages. Please make me an administrator with 'Post Messages' rights.",
 
         'capsule_delivered': '📦 **Time Capsule Delivered!**\n\n'
                             '💌 From: {sender_name}\n'
