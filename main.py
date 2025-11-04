@@ -23,6 +23,7 @@ from src.config import (
 
 from src.database import init_db, get_user_data
 from src.scheduler import init_scheduler
+from src.translations import t  # ADD MISSING IMPORT
 
 # ============================================================================
 # IMPORT HANDLERS BY THEME
@@ -193,12 +194,14 @@ async def main():
                 CallbackQueryHandler(select_language, pattern='^set_lang_')
             ],
 
-            # Ideas States (NEW)
+            # Ideas States (FIXED PATTERNS)
             SELECTING_IDEAS_CATEGORY: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_cat:|main_menu|cancel)$')
+                CallbackQueryHandler(ideas_router, pattern='^ideas_cat:'),
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|main_menu|cancel)$')
             ],
             SELECTING_IDEA_TEMPLATE: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_tpl:|ideas_menu|ideas_back|main_menu|cancel)$')
+                CallbackQueryHandler(ideas_router, pattern='^ideas_tpl:'),
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_back|main_menu|cancel)$')
             ],
             EDITING_IDEA_CONTENT: [
                 CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_back|ideas_menu|main_menu|cancel)$'),
