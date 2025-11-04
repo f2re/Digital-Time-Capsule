@@ -251,44 +251,74 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
 
 async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle custom date input"""
+    """Handle custom date input with timezone support"""
     message = update.message
     user = update.effective_user
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
-
-    try:
-        from dateutil import parser
-        delivery_time = parser.parse(message.text, fuzzy=True)
+    user_timezone = user_data.get('timezone', 'UTC')
+    
+    if message.text:
+        # Parse user input (expecting format like "31.12.2025 23:59")
+        date_str = message.text.strip()
         
-        # Ensure timezone is set
-        if delivery_time.tzinfo is None:
-            delivery_time = delivery_time.replace(tzinfo=timezone.utc)
-        
-        now = datetime.now(timezone.utc)
-        
-        # Check if date is in the future
-        if delivery_time <= now:
-            await message.reply_text(t(lang, 'date_must_be_future'))
+        try:
+            # Import timezone utilities
+            from ..timezone_utils import convert_local_to_utc
+            from datetime import datetime
+            import re
+            
+            # Parse date format DD.MM.YYYY HH:MM (the format mentioned in translations)
+            date_pattern = r'^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$'
+            match = re.match(date_pattern, date_str)
+            
+            if not match:
+                await message.reply_text(t(lang, 'invalid_date'))
+                return SELECTING_DATE
+            
+            day, month, year, hour, minute = map(int, match.groups())
+            local_delivery_time = datetime(year, month, day, hour, minute)
+            
+            # Convert from user's local timezone to UTC for storage
+            delivery_time = convert_local_to_utc(local_delivery_time, user_timezone)
+            
+            # Check if date is in the future
+            now_utc = datetime.now(timezone.utc)
+            if delivery_time <= now_utc:
+                await message.reply_text(t(lang, 'date_must_be_future'))
+                return SELECTING_DATE
+            
+            # Check if date is too far in the future based on user's subscription
+            from ..config import FREE_TIME_LIMIT_DAYS, PREMIUM_TIME_LIMIT_DAYS, PREMIUM_TIER
+            max_days = PREMIUM_TIME_LIMIT_DAYS if user_data.get('subscription_status') == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+            
+            max_allowed_date = now_utc + timedelta(days=max_days)
+            
+            if delivery_time > max_allowed_date:
+                # Format the max days message based on user's subscription
+                await message.reply_text(
+                    t(lang, 'date_too_far', 
+                      days=FREE_TIME_LIMIT_DAYS, 
+                      years=PREMIUM_TIME_LIMIT_DAYS//365)
+                )
+                return SELECTING_DATE
+            
+            context.user_data['capsule']['delivery_time'] = delivery_time
+            logger.info(f"Custom delivery time set: {delivery_time} (user's local: {local_delivery_time} in {user_timezone})")
+            
+            return await ask_for_recipient(update, context)
+            
+        except ValueError:
+            await message.reply_text(t(lang, 'invalid_date'))
             return SELECTING_DATE
-            
-        # Check time limits
-        max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
-        if (delivery_time - now).days > max_days:
-            keyboard = [[InlineKeyboardButton(t(lang, 'upgrade_premium'), callback_data='subscription')],
-                        [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
-            await send_menu_with_image(update, context, 'capsules', t(lang, 'time_limit_exceeded'), InlineKeyboardMarkup(keyboard))
-            return SELECTING_ACTION
-            
-        context.user_data['capsule']['delivery_time'] = delivery_time
-        logger.info(f"Custom delivery time set: {delivery_time} for user {user.id}")
-        
-        return await ask_for_recipient(update, context)
-        
-    except (ValueError, TypeError) as e:
-        logger.warning(f"Invalid date format from user {user.id}: {message.text}")
-        await message.reply_text(t(lang, 'invalid_date_format'))
-        return SELECTING_DATE
+        except Exception as e:
+            logger.error(f"Error parsing custom date: {e}")
+            await message.reply_text(t(lang, 'invalid_date'))
+            return SELECTING_DATE
+    
+    # If not a text message, reprompt
+    await message.reply_text(t(lang, 'enter_date'))
+    return SELECTING_DATE
 
 
 # ============================================================================
@@ -459,8 +489,10 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif recipient_type in ("group", "channel"):
         recipient_text = f"{capsule.get('recipient_name', 'Unknown')}"
 
-    # Format time display
-    time_text = capsule['delivery_time'].strftime("%d.%m.%Y %H:%M UTC")
+    # Format time display using user's timezone
+    from ..timezone_utils import format_time_for_user
+    user_timezone = user_data.get('timezone', 'UTC')
+    time_text = format_time_for_user(capsule['delivery_time'], user_timezone, lang)
     
     # Format content type
     content_type_display = t(lang, f"content_{capsule.get('content_type', 'unknown')}")
@@ -552,8 +584,10 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             await send_menu_with_image(update, context, 'capsules', t(lang, 'error_occurred'), InlineKeyboardMarkup(keyboard))
             return SELECTING_ACTION
 
-    # Generate success message
-    delivery_time_str = capsule_data['delivery_time'].strftime("%d.%m.%Y %H:%M UTC")
+    # Generate success message with user's local time
+    from ..timezone_utils import format_time_for_user
+    user_timezone = userdata.get('timezone', 'UTC')
+    delivery_time_str = format_time_for_user(capsule_data['delivery_time'], user_timezone, lang)
     
     # Check if this is a username recipient (needs activation)
     needs_activation = (recipient_type == 'user' and recipient_username_value)

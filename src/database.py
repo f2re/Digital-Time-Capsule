@@ -24,7 +24,8 @@ users = Table('users', metadata,
     Column('created_at', DateTime, default=datetime.utcnow),
     Column('total_storage_used', BigInteger, default=0),
     Column('capsule_count', Integer, default=0),
-    Column('capsule_balance', Integer, default=0)
+    Column('capsule_balance', Integer, default=0),
+    Column('timezone', String(50), default='UTC')  # User's timezone
 )
 
 
@@ -95,20 +96,26 @@ def get_or_create_user(telegram_user: User) -> Optional[int]:
 
             # Create new user with 3 starter capsules
             from .config import FREE_STARTER_CAPSULES  # Import at function level to avoid circular imports
+            from .timezone_utils import get_timezone_for_language  # Import at function level to avoid circular imports
+
+            # Determine timezone based on user's language
+            user_lang = telegram_user.language_code or 'en'
+            timezone_str = get_timezone_for_language(user_lang)
 
             result = conn.execute(
                 insert(users).values(
                     telegram_id=telegram_user.id,
                     username=telegram_user.username,
                     first_name=telegram_user.first_name,
-                    language_code=telegram_user.language_code or 'en',
+                    language_code=user_lang,
+                    timezone=timezone_str,  # Set user's timezone
                     capsule_balance=FREE_STARTER_CAPSULES  # Give 3 free capsules!
                 )
             )
             conn.commit()
 
             user_id = result.inserted_primary_key[0]
-            logger.info(f"✅ New user {telegram_user.id} created with {FREE_STARTER_CAPSULES} starter capsules")
+            logger.info(f"✅ New user {telegram_user.id} created with {FREE_STARTER_CAPSULES} starter capsules and timezone {timezone_str}")
 
             return user_id
 

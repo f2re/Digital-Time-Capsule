@@ -79,18 +79,24 @@ async def show_capsules(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                     if cap_dict['recipient_type'] == "self":
                         recipient = t(lang, "recipient_self")
 
+                    # Format time using user's local timezone
+                    from ..timezone_utils import format_time_for_user
+                    user_timezone = userdata.get('timezone', 'UTC')
+                    local_delivery_time_str = format_time_for_user(cap_dict['delivery_time'], user_timezone, lang)
+                    local_created_time_str = format_time_for_user(cap_dict['created_at'], user_timezone, lang)
+
                     item_text = t(lang, "capsule_item",
                                 emoji=emoji,
                                 type=cap_dict['content_type'],
                                 recipient=recipient,
-                                time=cap_dict['delivery_time'].strftime("%d.%m.%Y %H:%M"),
-                                created=cap_dict['created_at'].strftime("%d.%m.%Y"))
+                                time=local_delivery_time_str,
+                                created=local_created_time_str)
 
                     text += f"\n{item_text}"
 
                     capsule_keyboard.append([
                         InlineKeyboardButton(
-                            f"{emoji} {cap_dict['delivery_time'].strftime('%d.%m %H:%M')}",
+                            f"{emoji} {format_time_for_user(cap_dict['delivery_time'], user_timezone, lang).split()[1]}",  # Just the time part HH:MM
                             callback_data=f"view_{cap_dict['id']}"
                         ),
                         InlineKeyboardButton(

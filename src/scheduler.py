@@ -48,7 +48,10 @@ async def deliver_capsule(bot: Bot, capsule_id: int):
             if capsule_data.get('message'):
                 content += f"\n\n💬 {capsule_data['message']}"
 
-            created_at = capsule_data['created_at'].strftime("%d.%m.%Y %H:%M")
+            # Format the created_at time using sender's timezone
+            from .timezone_utils import format_time_for_user
+            sender_timezone = sender_data.get('timezone', 'UTC')
+            created_at = format_time_for_user(capsule_data['created_at'], sender_timezone, sender_lang)
 
             # Check recipient type
             recipient_type = capsule_data['recipient_type']
