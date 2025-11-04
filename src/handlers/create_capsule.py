@@ -688,99 +688,47 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         recipient_id_value = user.id
         needs_activation = False
 
-    # ⭐ START TRANSACTION - All or nothing!
-    try:
-        with engine.connect() as conn:
-            # Begin transaction
-            trans = conn.begin()
+    # Create capsule with balance deduction in a single transaction
+    from ..database import create_capsule_with_balance_deduction
+    success, capsule_id = await create_capsule_with_balance_deduction(userdata['id'], {
+        'capsule_uuid': capsule_uuid,
+        'content_type': capsule_data['content_type'],
+        'content_text': capsule_data.get('content_text'),
+        'file_key': capsule_data.get('file_key'),
+        's3_key': capsule_data.get('s3_key'),
+        'file_size': capsule_data.get('file_size', 0),
+        'recipient_type': recipient_type,
+        'recipient_id': recipient_id_value,
+        'recipient_username': recipient_username_value,
+        'delivery_time': capsule_data['delivery_time'],
+        'message': capsule_data.get('message')
+    })
 
-            try:
-                # 1. Check balance first
-                balance_result = conn.execute(
-                    select(users.c.capsule_balance)
-                    .where(users.c.id == userdata['id'])
-                ).first()
-
-                if not balance_result or balance_result[0] <= 0:
-                    trans.rollback()
-                    try:
-                        await query.edit_message_text(
-                            t(lang, 'no_capsule_balance'),
-                            reply_markup=InlineKeyboardMarkup([[
-                                InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
-                            ]])
-                        )
-                    except Exception:
-                        # Fallback if edit_message_text fails (e.g., original message has no text)
-                        try:
-                            await query.edit_message_caption(
-                                caption=t(lang, 'no_capsule_balance'),
-                                reply_markup=InlineKeyboardMarkup([[
-                                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
-                                ]])
-                            )
-                        except Exception:
-                            # If both fail, send a new message
-                            await query.message.reply_text(
-                                t(lang, 'no_capsule_balance'),
-                                reply_markup=InlineKeyboardMarkup([[
-                                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
-                                ]])
-                            )
-                    return SELECTING_ACTION
-
-                # 2. Insert capsule
-                result = conn.execute(
-                    insert(capsules).values(
-                        user_id=userdata['id'],
-                        capsule_uuid=capsule_uuid,
-                        content_type=capsule_data['content_type'],
-                        content_text=capsule_data.get('content_text'),
-                        file_key=capsule_data.get('file_key'),
-                        s3_key=capsule_data.get('s3_key'),
-                        file_size=capsule_data.get('file_size', 0),
-                        recipient_type=recipient_type,
-                        recipient_id=recipient_id_value,
-                        recipient_username=recipient_username_value,
-                        delivery_time=capsule_data['delivery_time'],
-                        message=capsule_data.get('message')
-                    )
-                )
-                capsule_id = result.inserted_primary_key[0]
-
-                # 3. Update user stats AND deduct balance
-                conn.execute(
-                    sqlalchemy_update(users)
-                    .where(users.c.id == userdata['id'])
-                    .values(
-                        capsule_count=users.c.capsule_count + 1,
-                        total_storage_used=users.c.total_storage_used + capsule_data.get('file_size', 0),
-                        capsule_balance=users.c.capsule_balance - 1  # ⭐ Deduct here!
-                    )
-                )
-
-                # 4. Commit transaction
-                trans.commit()
-                logger.info(f"✅ Capsule {capsule_uuid} created successfully")
-
-            except Exception as e:
-                # Rollback on any error
-                trans.rollback()
-                logger.error(f"Error creating capsule (rolled back): {e}")
-                try:
-                    await query.edit_message_text(t(lang, 'error_occurred'))
-                except Exception:
-                    # Fallback if edit_message_text fails (e.g., original message has no text)
-                    await query.edit_message_caption(caption=t(lang, 'error_occurred'))
-                return SELECTING_ACTION
-
-    except Exception as e:
-        logger.error(f"Database connection error: {e}")
+    if not success:
         try:
-            await query.edit_message_text(t(lang, 'error_occurred'))
+            await query.edit_message_text(
+                t(lang, 'no_capsule_balance'),
+                reply_markup=InlineKeyboardMarkup([[
+                    InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                ]])
+            )
         except Exception:
             # Fallback if edit_message_text fails (e.g., original message has no text)
-            await query.edit_message_caption(caption=t(lang, 'error_occurred'))
+            try:
+                await query.edit_message_caption(
+                    caption=t(lang, 'no_capsule_balance'),
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                    ]])
+                )
+            except Exception:
+                # If both fail, send a new message
+                await query.message.reply_text(
+                    t(lang, 'no_capsule_balance'),
+                    reply_markup=InlineKeyboardMarkup([[
+                        InlineKeyboardButton(t(lang, 'buy_capsules'), callback_data='subscription')
+                    ]])
+                )
         return SELECTING_ACTION
 
     # Generate success message

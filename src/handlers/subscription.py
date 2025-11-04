@@ -563,29 +563,26 @@ async def successful_payment_callback(update: Update, context: ContextTypes.DEFA
         # Update database
         from sqlalchemy import update as sqlalchemy_update
         
-        with engine.connect() as conn:
-            if capsules_to_add > 0:
-                add_capsules_to_balance(user_data['id'], capsules_to_add)
+        if capsules_to_add > 0:
+            add_capsules_to_balance(user_data['id'], capsules_to_add)
 
-            if subscription_change:
-                # Use sqlalchemy_update to avoid conflict with the update parameter
-                stmt = sqlalchemy_update(users).where(users.c.id == user_data['id']).values(
-                    subscription_status=subscription_change['status'],
-                    subscription_expires=subscription_change['expires']
-                )
-                conn.execute(stmt)
-
-            charge_id = getattr(payment, 'telegram_payment_charge_id', None) or getattr(payment, 'provider_payment_charge_id', 'unknown')
-
-            record_capsule_transaction(
+        if subscription_change:
+            from ..database import update_user_subscription
+            update_user_subscription(
                 user_data['id'],
-                payment_type,
-                payment.total_amount,
-                capsules_to_add,
-                charge_id
+                subscription_change['status'],
+                subscription_change['expires']
             )
 
-            conn.commit()
+        charge_id = getattr(payment, 'telegram_payment_charge_id', None) or getattr(payment, 'provider_payment_charge_id', 'unknown')
+
+        record_capsule_transaction(
+            user_data['id'],
+            payment_type,
+            payment.total_amount,
+            capsules_to_add,
+            charge_id
+        )
 
         success_msg = t(lang, "payment_success", capsules=capsules_to_add, type=payment_type)
 

@@ -16,21 +16,18 @@ async def delete_capsule_handler(update: Update, context: ContextTypes.DEFAULT_T
     capsule_id = int(query.data.split('_')[1])
 
     try:
-        with engine.connect() as conn:
-            # Get capsule data to check for S3 key
-            capsule_data = conn.execute(
-                select(capsules.c.s3_key)
-                .where(capsules.c.id == capsule_id)
-            ).first()
+        # Get capsule data to check for S3 key
+        from ..database import get_capsule_s3_key
+        s3_key = await get_capsule_s3_key(capsule_id)
 
-            if capsule_data and capsule_data.s3_key:
-                delete_file_from_s3(capsule_data.s3_key)
+        if s3_key:
+            delete_file_from_s3(s3_key)
 
-            # Delete from database
-            db_delete_capsule(capsule_id)
+        # Delete from database
+        db_delete_capsule(capsule_id)
 
-            # Show updated capsule list
-            return await show_capsules(update, context)
+        # Show updated capsule list
+        return await show_capsules(update, context)
 
     except Exception as e:
         # Handle error

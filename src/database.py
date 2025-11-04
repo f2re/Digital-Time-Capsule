@@ -4,7 +4,7 @@ from typing import Optional, Dict
 from sqlalchemy import (
     create_engine, MetaData, Table, Column, Integer, String,
     DateTime, ForeignKey, Boolean, BigInteger, Text, select,
-    insert, update as sqlalchemy_update, LargeBinary, Float
+    insert, update as sqlalchemy_update, LargeBinary, Float, and_
 )
 from telegram import User
 from .config import DATABASE_URL, logger, PREMIUM_TIER, PREMIUM_CAPSULE_LIMIT, FREE_CAPSULE_LIMIT, PREMIUM_STORAGE_LIMIT, FREE_STORAGE_LIMIT
@@ -24,7 +24,20 @@ users = Table('users', metadata,
     Column('created_at', DateTime, default=datetime.utcnow),
     Column('total_storage_used', BigInteger, default=0),
     Column('capsule_count', Integer, default=0),
-    Column('capsule_balance', Integer, default=0)
+    Column('capsule_balance', Integer, default=0),
+    # Onboarding tracking fields
+    Column('onboarding_stage', String(50), default='not_started'),
+    Column('onboarding_variant', String(10), default=None),
+    # Enhanced onboarding and personalization fields
+    Column('onboarding_started_at', DateTime, nullable=True),
+    Column('onboarding_completed_at', DateTime, nullable=True),
+    Column('last_activity_time', DateTime, default=datetime.utcnow),
+    Column('preferred_capsule_types', Text, default='{}'),
+    Column('emotional_profile', String(50), default='unknown'),
+    Column('streak_count', Integer, default=0),
+    Column('best_streak', Integer, default=0),
+    Column('total_capsules_created', Integer, default=0),
+    Column('engagement_score', Float, default=0.0)
 )
 
 
@@ -730,3 +743,231 @@ def get_user_data_by_telegram_id(telegram_id: int) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Error getting user data by telegram_id: {e}")
         return None
+
+
+async def add_user_onboarding(telegram_id: int, variant: str, stage: str) -> bool:
+    """Initialize onboarding data for a user"""
+    try:
+        with engine.connect() as conn:
+            # First, check if user exists by trying to get them
+            user_check = conn.execute(
+                select(users.c.id).where(users.c.telegram_id == telegram_id)
+            ).first()
+            
+            if user_check:
+                # User exists, update onboarding fields
+                conn.execute(
+                    sqlalchemy_update(users)
+                    .where(users.c.telegram_id == telegram_id)
+                    .values(
+                        onboarding_variant=variant,
+                        onboarding_stage=stage
+                    )
+                )
+                conn.commit()
+                logger.info(f"✅ Onboarding initialized for user {telegram_id} with variant {variant}, stage {stage}")
+                return True
+            else:
+                logger.warning(f"❌ User {telegram_id} does not exist, cannot set onboarding info")
+                return False
+    except Exception as e:
+        logger.error(f"Error initializing onboarding: {e}")
+        return False
+
+
+async def update_user_onboarding_stage(telegram_id: int, stage: str) -> bool:
+    """Update user's onboarding stage"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.telegram_id == telegram_id)
+                .values(onboarding_stage=stage)
+            )
+            conn.commit()
+            logger.info(f"✅ Updated onboarding stage for user {telegram_id} to {stage}")
+            return True
+    except Exception as e:
+        logger.error(f"Error updating onboarding stage: {e}")
+        return False
+
+
+async def get_user_onboarding_info(telegram_id: int) -> Optional[Dict]:
+    """Get user's onboarding information"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(users.c.onboarding_variant, users.c.onboarding_stage).where(
+                    users.c.telegram_id == telegram_id
+                )
+            ).first()
+
+            if result:
+                return {
+                    'onboarding_variant': result[0],
+                    'onboarding_stage': result[1]
+                }
+            return None
+    except Exception as e:
+        logger.error(f"Error getting user onboarding info: {e}")
+        return None
+
+
+async def update_onboarding_started_time(telegram_id: int) -> bool:
+    """Update the onboarding started time for a user"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.telegram_id == telegram_id)
+                .values(onboarding_started_at=datetime.utcnow())
+            )
+            conn.commit()
+            logger.info(f"Updated onboarding started time for user {telegram_id}")
+            return True
+    except Exception as e:
+        logger.error(f"Error updating onboarding started time: {e}")
+        return False
+
+
+async def get_capsule_s3_key(capsule_id: int) -> Optional[str]:
+    """Get S3 key for a specific capsule"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules.c.s3_key)
+                .where(capsules.c.id == capsule_id)
+            ).first()
+
+            return result[0] if result and result[0] else None
+    except Exception as e:
+        logger.error(f"Error getting capsule S3 key: {e}")
+        return None
+
+
+def get_capsule_by_uuid(capsule_uuid: str) -> Optional[Dict]:
+    """Get capsule data by UUID"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules.c.delivery_time, capsules.c.user_id)
+                .where(capsules.c.capsule_uuid == capsule_uuid)
+            ).first()
+
+            if result:
+                return {
+                    'delivery_time': result[0],
+                    'user_id': result[1]
+                }
+            return None
+    except Exception as e:
+        logger.error(f"Error getting capsule by UUID: {e}")
+        return None
+
+
+def update_user_subscription(user_id: int, subscription_status: str, subscription_expires: datetime) -> bool:
+    """Update user's subscription status and expiration date"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(users)
+                .where(users.c.id == user_id)
+                .values(
+                    subscription_status=subscription_status,
+                    subscription_expires=subscription_expires
+                )
+            )
+            conn.commit()
+            logger.info(f"Updated subscription for user {user_id} to {subscription_status}")
+            return True
+    except Exception as e:
+        logger.error(f"Error updating user subscription: {e}")
+        return False
+
+
+def get_user_active_capsules(user_id: int):
+    """Get all active (undelivered) capsules for a user"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(capsules)
+                .where(and_(
+                    capsules.c.user_id == user_id,
+                    capsules.c.delivered == False
+                ))
+                .order_by(capsules.c.delivery_time)
+            ).fetchall()
+            
+            return result
+    except Exception as e:
+        logger.error(f"Error getting user active capsules: {e}")
+        return []
+
+
+async def create_capsule_with_balance_deduction(user_id: int, capsule_data: Dict) -> tuple[bool, int]:
+    """
+    Create a capsule and deduct from user's balance in a single transaction
+    Returns (success: bool, capsule_id: int)
+    """
+    try:
+        with engine.connect() as conn:
+            # Begin transaction
+            trans = conn.begin()
+
+            try:
+                # 1. Check user balance first
+                balance_result = conn.execute(
+                    select(users.c.capsule_balance)
+                    .where(users.c.id == user_id)
+                ).first()
+
+                if not balance_result or balance_result[0] <= 0:
+                    trans.rollback()
+                    logger.warning(f"Insufficient balance for user {user_id}")
+                    return False, 0
+
+                # 2. Insert capsule
+                result = conn.execute(
+                    insert(capsules).values(
+                        user_id=user_id,
+                        capsule_uuid=capsule_data['capsule_uuid'],
+                        content_type=capsule_data['content_type'],
+                        content_text=capsule_data.get('content_text'),
+                        file_key=capsule_data.get('file_key'),
+                        s3_key=capsule_data.get('s3_key'),
+                        file_size=capsule_data.get('file_size', 0),
+                        recipient_type=capsule_data['recipient_type'],
+                        recipient_id=capsule_data.get('recipient_id'),
+                        recipient_username=capsule_data.get('recipient_username'),
+                        delivery_time=capsule_data['delivery_time'],
+                        message=capsule_data.get('message')
+                    )
+                )
+                capsule_id = result.inserted_primary_key[0]
+
+                # 3. Update user stats AND deduct balance
+                conn.execute(
+                    sqlalchemy_update(users)
+                    .where(users.c.id == user_id)
+                    .values(
+                        capsule_count=users.c.capsule_count + 1,
+                        total_storage_used=users.c.total_storage_used + capsule_data.get('file_size', 0),
+                        capsule_balance=users.c.capsule_balance - 1  # Deduct the capsule
+                    )
+                )
+
+                # 4. Commit transaction
+                trans.commit()
+                logger.info(f"✅ Capsule {capsule_data['capsule_uuid']} created successfully for user {user_id}")
+                
+                return True, capsule_id
+
+            except Exception as e:
+                # Rollback on any error
+                trans.rollback()
+                logger.error(f"Error creating capsule (rolled back): {e}")
+                return False, 0
+
+    except Exception as e:
+        logger.error(f"Database connection error in create_capsule_with_balance_deduction: {e}")
+        return False, 0

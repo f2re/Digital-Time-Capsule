@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes
 from ..database import get_user_data
 from ..translations import t
 from ..config import SELECTING_ACTION, logger
+from ..feature_config import feature_flag_manager, FeatureFlag
 
 def get_main_menu_keyboard(lang: str) -> InlineKeyboardMarkup:
     """Generate main menu keyboard"""
@@ -30,6 +31,8 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     from .settings import show_settings
     from .start import show_main_menu_with_image
     from .legal_info import show_legal_info_menu
+    from .smart_create_capsule import smart_capsule_creator
+    from .smart_help import smart_help_system
 
     query = update.callback_query
     if query:
@@ -49,7 +52,13 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
 
     # Route to specific handlers
     if action == 'create':
-        return await start_create_capsule(update, context)
+        # Check if smart creation is enabled for this user
+        if feature_flag_manager.is_feature_enabled_for_user(user.id, FeatureFlag.CONTENT_SUGGESTIONS):
+            # Start smart creation flow
+            from telegram.ext import ConversationHandler
+            return await smart_capsule_creator.start_smart_creation(update, context)
+        else:
+            return await start_create_capsule(update, context)
 
     elif action == 'capsules':
         return await show_capsules(update, context)
@@ -64,32 +73,38 @@ async def main_menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         return await show_legal_info_menu(update, context)
 
     elif action == 'help':
-        # Show help with image, then return to main menu
-        from ..image_menu import send_menu_with_image
-        if query:
-            try:
-                # Delete the current message and send new one with image
-                await query.message.delete()
-                await send_menu_with_image(
-                    update=update,
-                    context=context,
-                    image_key='help',
-                    caption=t(lang, 'help_text'),
-                    keyboard=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
-                    ]]),
-                    parse_mode='HTML'
-                )
-            except:
-                # Fallback to text-only if image sending fails
-                await query.message.reply_text(
-                    t(lang, 'help_text'),
-                    reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
-                    ]]),
-                    parse_mode='HTML'
-                )
-        return SELECTING_ACTION
+        # Check if smart help is enabled for this user
+        if feature_flag_manager.is_feature_enabled_for_user(user.id, FeatureFlag.SMART_HELP):
+            # Use smart help system
+            from telegram.ext import ConversationHandler
+            return await smart_help_system.get_smart_help_menu(update, context)
+        else:
+            # Show basic help with image, then return to main menu
+            from ..image_menu import send_menu_with_image
+            if query:
+                try:
+                    # Delete the current message and send new one with image
+                    await query.message.delete()
+                    await send_menu_with_image(
+                        update=update,
+                        context=context,
+                        image_key='help',
+                        caption=t(lang, 'help_text'),
+                        keyboard=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
+                        ]]),
+                        parse_mode='HTML'
+                    )
+                except:
+                    # Fallback to text-only if image sending fails
+                    await query.message.reply_text(
+                        t(lang, 'help_text'),
+                        reply_markup=InlineKeyboardMarkup([[
+                            InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')
+                        ]]),
+                        parse_mode='HTML'
+                    )
+            return SELECTING_ACTION
 
     elif action in ('main_menu', 'cancel', 'confirm_no'):
         # ALWAYS return to BIG MENU with image

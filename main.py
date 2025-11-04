@@ -17,6 +17,10 @@ from src.config import (
     RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, SELECTING_RECIPIENT,
     CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS,
     SELECTING_PAYMENT_METHOD, SELECTING_CURRENCY, MANAGING_LEGAL_INFO,
+    # Smart creation states
+    SMART_SELECTING_CAPSULE_TYPE, SMART_SELECTING_TEMPLATE, SMART_CREATING_CONTENT,
+    # Smart help states
+    SMART_HELP_MENU, PROACTIVE_HELP, CONTEXTUAL_HELP, FEEDBACK_COLLECTION,
     logger
 )
 
@@ -31,6 +35,9 @@ from src.scheduler import init_scheduler
 from src.handlers.start import start, select_language, show_main_menu_with_image
 from src.handlers.main_menu import main_menu_handler
 
+# Onboarding Handler
+from src.handlers.onboarding import get_onboarding_handler
+
 # Capsule Creation Handlers
 from src.handlers.create_capsule import (
     select_content_type, receive_content, select_time,
@@ -38,12 +45,14 @@ from src.handlers.create_capsule import (
     start_create_capsule, show_user_list
 )
 
+# Enhanced Capsule Creation Handler
+from src.handlers.smart_create_capsule import smart_capsule_creator
+
 # Capsule Management Handlers
 from src.handlers.view_capsules import show_capsules
 from src.handlers.delete_capsule import delete_capsule_handler
 
 # Payment & Subscription Handlers
-
 from src.handlers.subscription import (
     show_subscription,
     select_payment_method,
@@ -54,12 +63,19 @@ from src.handlers.subscription import (
     paysupport_command
 )
 
-
-# Settings & Help Handlers
+# Help Handlers
 from src.handlers.settings import show_settings, language_callback_handler
 from src.handlers.help import help_command
+from src.handlers.smart_help import smart_help_system
 from src.handlers.chatid import chatid_command
 from src.handlers.legal_info import legal_info_handler, show_legal_info_menu
+
+# New system components
+from src.feature_config import feature_flag_manager
+from src.notification_manager import init_notification_manager
+from src.smart_scheduler import init_smart_scheduler
+from src.analytics import analytics_engine, personalization_engine
+from src.gamification import gamification_engine
 
 import asyncio
 
@@ -158,6 +174,17 @@ async def main():
     # Initialize and store scheduler
     scheduler = init_scheduler(application)
     application.bot_data['scheduler'] = scheduler
+    
+    # Initialize new system components
+    smart_scheduler = init_smart_scheduler(application.bot)
+    init_notification_manager(application.bot)
+    
+    # Start smart scheduler
+    smart_scheduler.start_scheduler()
+    
+    # Initialize monitoring system and start periodic health checks
+    from src.monitoring import monitoring_system
+    monitoring_system.run_health_check_task()
 
     # ========================================================================
     # CONVERSATION HANDLER - Main bot logic
@@ -256,6 +283,43 @@ async def main():
                 CallbackQueryHandler(show_legal_info_menu, pattern="^legal_info_menu$"),
                 CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
             ],
+
+            # Smart Capsule Creation States
+            SMART_SELECTING_CAPSULE_TYPE: [
+                CallbackQueryHandler(smart_capsule_creator.handle_capsule_type_selection),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
+
+            SMART_SELECTING_TEMPLATE: [
+                CallbackQueryHandler(smart_capsule_creator.handle_template_selection),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
+
+            SMART_CREATING_CONTENT: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, smart_capsule_creator.receive_smart_content),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
+
+            # Smart Help States
+            SMART_HELP_MENU: [
+                CallbackQueryHandler(smart_help_system.handle_help_selection),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
+
+            PROACTIVE_HELP: [
+                CallbackQueryHandler(smart_help_system.handle_help_selection),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
+
+            CONTEXTUAL_HELP: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, smart_help_system.collect_feedback),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
+
+            FEEDBACK_COLLECTION: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, smart_help_system.collect_feedback),
+                CallbackQueryHandler(main_menu_handler, pattern='^(main_menu|cancel)$')
+            ],
         },
         fallbacks=[
             CommandHandler('start', start),
@@ -270,6 +334,14 @@ async def main():
 
     # Add conversation handler
     application.add_handler(conv_handler)
+
+    # ========================================================================
+    # ONBOARDING HANDLER (Separate conversation for onboarding flow)
+    # ========================================================================
+    
+    # This adds a separate onboarding flow that can be accessed via /onboard command
+    onboarding_handler = get_onboarding_handler()
+    application.add_handler(onboarding_handler)
 
     # ========================================================================
     # PAYMENT HANDLERS (Outside conversation - work independently)
