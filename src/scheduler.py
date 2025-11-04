@@ -48,57 +48,76 @@ async def deliver_capsule(bot: Bot, capsule_id: int):
             if capsule_data.get('message'):
                 content += f"\n\n💬 {capsule_data['message']}"
 
-            # Format the created_at time using sender's timezone
-            from .timezone_utils import format_time_for_user
-            sender_timezone = sender_data.get('timezone', 'UTC')
-            created_at = format_time_for_user(capsule_data['created_at'], sender_timezone, sender_lang)
+            # Format the created_at time
+            try:
+                from .timezone_utils import format_time_for_user
+                sender_timezone = sender_data.get('timezone', 'UTC')
+                created_at = format_time_for_user(capsule_data['created_at'], sender_timezone, sender_lang)
+            except:
+                # Fallback to simple format if timezone utils not available
+                created_at = capsule_data['created_at'].strftime("%d.%m.%Y %H:%M")
 
             # Check recipient type
             recipient_type = capsule_data['recipient_type']
+            logger.info(f"Delivering capsule {capsule_id} of type '{recipient_type}' from user {sender_data['telegram_id']}")
 
-            # GROUP DELIVERY
-            if recipient_type == 'group':
+            # GROUP/CHANNEL DELIVERY
+            if recipient_type in ['group', 'channel']:
                 try:
-                    group_id = capsule_data['recipient_id']
+                    chat_id = int(capsule_data['recipient_id'])
 
-                    # Build message using translation
+                    # FIXED: For groups, determine language from group context or sender
+                    # For now, we'll use sender's language since Telegram groups don't have a "preferred language" setting
+                    # This could be enhanced in the future to detect group language from recent messages
+                    delivery_lang = sender_lang
+                    
+                    logger.info(f"Using language '{delivery_lang}' for group/channel delivery")
+
+                    # Build message using correct language
                     delivery_text = (
-                        f"📦 <b>{t(sender_lang, 'capsule_delivered_title')}</b>\n\n"
-                        f"💌 {t(sender_lang, 'from')}: {sender_name}\n"
-                        f"⏰ {t(sender_lang, 'created')}: {created_at}\n\n"
+                        f"📦 <b>{t(delivery_lang, 'capsule_delivered_title')}</b>\n\n"
+                        f"💌 {t(delivery_lang, 'from')}: {sender_name}\n"
+                        f"⏰ {t(delivery_lang, 'created')}: {created_at}\n\n"
                         f"{content}"
                     )
 
                     await bot.send_message(
-                        chat_id=group_id,
+                        chat_id=chat_id,
                         text=delivery_text,
                         parse_mode='HTML'
                     )
 
-                    logger.info(f"✅ Capsule {capsule_id} delivered to group {group_id}")
+                    logger.info(f"✅ Capsule {capsule_id} delivered to {recipient_type} {chat_id} in {delivery_lang}")
                     mark_capsule_delivered(capsule_id)
                     return
 
                 except Forbidden:
-                    logger.error(f"❌ Bot not a member of group {group_id}")
+                    logger.error(f"❌ Bot not a member of {recipient_type} {chat_id}")
                     await bot.send_message(
                         chat_id=sender_data['telegram_id'],
                         text=t(sender_lang, 'group_not_member'),
                         parse_mode='HTML'
                     )
-                    mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+                    mark_capsule_delivered(capsule_id)
                 except BadRequest as e:
-                    logger.error(f"❌ Group {group_id} not found or invalid: {e}")
+                    logger.error(f"❌ {recipient_type.title()} {chat_id} not found or invalid: {e}")
                     await bot.send_message(
                         chat_id=sender_data['telegram_id'],
                         text=t(sender_lang, 'delivery_failed_invalid_chat'),
                         parse_mode='HTML'
                     )
-                    mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+                    mark_capsule_delivered(capsule_id)
+                except Exception as e:
+                    logger.error(f"❌ Error delivering to {recipient_type}: {e}")
+                    await bot.send_message(
+                        chat_id=sender_data['telegram_id'],
+                        text=t(sender_lang, 'delivery_failed_error'),
+                        parse_mode='HTML'
+                    )
                 return
 
             # USER DELIVERY
-            # ⭐ CRITICAL FIX: Check if capsule needs activation (username-based)
+            # Check if capsule needs activation (username-based)
             if not capsule_data.get('recipient_id') and capsule_data.get('recipient_username'):
                 # Not yet activated - notify sender ONCE
                 username = capsule_data['recipient_username']
@@ -138,17 +157,20 @@ async def deliver_capsule(bot: Bot, capsule_id: int):
             try:
                 user_id = int(capsule_data['recipient_id'])
 
-                # Get recipient language
-                recipient_lang = 'en'
+                # FIXED: Get recipient's preferred language
+                recipient_lang = 'en'  # Default fallback
                 try:
                     from .database import get_user_data_by_telegram_id
                     recipient_user_data = get_user_data_by_telegram_id(user_id)
                     if recipient_user_data:
                         recipient_lang = recipient_user_data.get('language_code', 'en')
-                except:
-                    pass
+                        logger.info(f"Using recipient's language '{recipient_lang}' for user {user_id}")
+                    else:
+                        logger.warning(f"Recipient {user_id} not found in database, using default language 'en'")
+                except Exception as e:
+                    logger.warning(f"Error getting recipient language: {e}, using 'en'")
 
-                # Build message with HTML using translations
+                # Build message with HTML using recipient's language
                 delivery_message = (
                     f"📦 <b>{t(recipient_lang, 'capsule_delivered_title')}</b>\n\n"
                     f"💌 {t(recipient_lang, 'from')}: {sender_name}\n"
@@ -206,7 +228,7 @@ async def deliver_capsule(bot: Bot, capsule_id: int):
                         parse_mode='HTML'
                     )
 
-                logger.info(f"✅ Capsule {capsule_id} delivered to user {user_id}")
+                logger.info(f"✅ Capsule {capsule_id} delivered to user {user_id} in {recipient_lang}")
                 mark_capsule_delivered(capsule_id)
                 return
 
@@ -217,7 +239,7 @@ async def deliver_capsule(bot: Bot, capsule_id: int):
                     text=t(sender_lang, 'delivery_failed_blocked'),
                     parse_mode='HTML'
                 )
-                mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+                mark_capsule_delivered(capsule_id)
 
             except BadRequest as e:
                 logger.error(f"❌ Invalid chat {user_id}: {e}")
@@ -226,7 +248,7 @@ async def deliver_capsule(bot: Bot, capsule_id: int):
                     text=t(sender_lang, 'delivery_failed_invalid_chat'),
                     parse_mode='HTML'
                 )
-                mark_capsule_delivered(capsule_id)  # ⭐ Mark as delivered to stop retrying
+                mark_capsule_delivered(capsule_id)
 
             except Exception as e:
                 logger.error(f"❌ Error delivering to user: {e}")
