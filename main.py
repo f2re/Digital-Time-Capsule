@@ -17,6 +17,7 @@ from src.config import (
     RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, PROCESSING_RECIPIENT,
     CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS,
     SELECTING_PAYMENT_METHOD, SELECTING_CURRENCY, MANAGING_LEGAL_INFO,
+    SELECTING_IDEAS_CATEGORY, SELECTING_IDEA_TEMPLATE, EDITING_IDEA_CONTENT,  # NEW
     logger
 )
 
@@ -43,6 +44,9 @@ from src.handlers.create_capsule import (
     process_self_recipient,
     confirm_capsule,
 )
+
+# Ideas Handlers (NEW)
+from src.handlers.ideas import show_ideas_menu, ideas_router, ideas_text_input  # NEW
 
 # Capsule Management Handlers
 from src.handlers.view_capsules import show_capsules
@@ -187,6 +191,18 @@ async def main():
             SELECTING_ACTION: [
                 CallbackQueryHandler(main_menu_handler),
                 CallbackQueryHandler(select_language, pattern='^set_lang_')
+            ],
+
+            # Ideas States (NEW)
+            SELECTING_IDEAS_CATEGORY: [
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_cat:)')
+            ],
+            SELECTING_IDEA_TEMPLATE: [
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_tpl:|ideas_menu|main_menu)$')
+            ],
+            EDITING_IDEA_CONTENT: [
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_back|ideas_menu)$'),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_text_input),
             ],
 
             # Capsule Creation States
