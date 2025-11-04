@@ -44,8 +44,8 @@ async def start_create_capsule(update: Update, context: ContextTypes.DEFAULT_TYP
     if not can_create and error_msg == "storage_limit_reached":
         storage_limit = FREE_STORAGE_LIMIT if user_data['subscription_status'] == FREE_TIER else PREMIUM_STORAGE_LIMIT
         keyboard = [[InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
-        await send_menu_with_image(update, context, 'capsules', 
-                                  t(lang, 'storage_limit_reached', limit=f"{storage_limit // (1024*1024)} MB"), 
+        await send_menu_with_image(update, context, 'capsules',
+                                  t(lang, 'storage_limit_reached', limit=f"{storage_limit // (1024*1024)} MB"),
                                   InlineKeyboardMarkup(keyboard))
         return SELECTING_ACTION
 
@@ -77,10 +77,10 @@ async def select_content_type(update: Update, context: ContextTypes.DEFAULT_TYPE
     logger.info(f"User {user.id} selected content type: {content_type}")
 
     type_names = {
-        'text': t(lang, 'content_text'), 
-        'photo': t(lang, 'content_photo'), 
-        'video': t(lang, 'content_video'), 
-        'document': t(lang, 'content_document'), 
+        'text': t(lang, 'content_text'),
+        'photo': t(lang, 'content_photo'),
+        'video': t(lang, 'content_video'),
+        'document': t(lang, 'content_document'),
         'voice': t(lang, 'content_voice')
     }
     instruction_text = t(lang, 'send_content', type=type_names.get(content_type, content_type))
@@ -114,7 +114,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     else:
         file = None
         ext = 'bin'
-        
+
         if content_type == 'photo' and message.photo:
             file = await message.photo[-1].get_file()
             ext = 'jpg'
@@ -127,7 +127,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         elif content_type == 'voice' and message.voice:
             file = await message.voice.get_file()
             ext = 'ogg'
-            
+
         if not file:
             await message.reply_text(t(lang, 'send_content', type=t(lang, f'content_{content_type}')))
             return RECEIVING_CONTENT
@@ -136,7 +136,7 @@ async def receive_content(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         if file.file_size and file.file_size > 50 * 1024 * 1024:  # 50MB limit
             await message.reply_text(t(lang, 'file_too_large'))
             return RECEIVING_CONTENT
-            
+
         # Check storage quota
         user_data_fresh = get_user_data(user.id)
         can_create, error_msg = check_user_quota(user_data_fresh, file.file_size or 0)
@@ -171,28 +171,20 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
 
     # Build keyboard based on subscription status
     keyboard = [
-        [InlineKeyboardButton(t(lang, 'time_1hour'), callback_data='time_1h'), 
+        [InlineKeyboardButton(t(lang, 'time_1hour'), callback_data='time_1h'),
          InlineKeyboardButton(t(lang, 'time_1day'), callback_data='time_1d')],
-        [InlineKeyboardButton(t(lang, 'time_1week'), callback_data='time_1w'), 
+        [InlineKeyboardButton(t(lang, 'time_1week'), callback_data='time_1w'),
          InlineKeyboardButton(t(lang, 'time_1month'), callback_data='time_1m')],
-        [InlineKeyboardButton(t(lang, 'time_3months'), callback_data='time_3m'), 
+        [InlineKeyboardButton(t(lang, 'time_3months'), callback_data='time_3m'),
          InlineKeyboardButton(t(lang, 'time_6months'), callback_data='time_6m')],
         [InlineKeyboardButton(t(lang, 'time_1year'), callback_data='time_1y')]
     ]
-    
-    # Add premium options if user has premium
-    if user_data['subscription_status'] == PREMIUM_TIER:
-        keyboard.extend([
-            [InlineKeyboardButton(t(lang, 'time_5years'), callback_data='time_5y'), 
-             InlineKeyboardButton(t(lang, 'time_10years'), callback_data='time_10y')],
-            [InlineKeyboardButton(t(lang, 'time_25years'), callback_data='time_25y')]
-        ])
-    
+
     keyboard.extend([
         [InlineKeyboardButton(t(lang, 'time_custom'), callback_data='time_custom')],
         [InlineKeyboardButton(t(lang, 'cancel'), callback_data='cancel')]
     ])
-    
+
     await send_menu_with_image(update, context, 'capsules', t(lang, 'select_time'), InlineKeyboardMarkup(keyboard))
     return SELECTING_TIME
 
@@ -213,7 +205,7 @@ async def select_time(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int
 
     now = datetime.now(timezone.utc)
     delivery_time = now
-    
+
     # Calculate delivery time based on selection
     if time_option == '1h':
         delivery_time = now + timedelta(hours=1)
@@ -257,57 +249,57 @@ async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE)
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
     user_timezone = user_data.get('timezone', 'UTC')
-    
+
     if message.text:
         # Parse user input (expecting format like "31.12.2025 23:59")
         date_str = message.text.strip()
-        
+
         try:
             # Import timezone utilities
             from ..timezone_utils import convert_local_to_utc
             from datetime import datetime
             import re
-            
+
             # Parse date format DD.MM.YYYY HH:MM (the format mentioned in translations)
             date_pattern = r'^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$'
             match = re.match(date_pattern, date_str)
-            
+
             if not match:
                 await message.reply_text(t(lang, 'invalid_date'))
                 return SELECTING_DATE
-            
+
             day, month, year, hour, minute = map(int, match.groups())
             local_delivery_time = datetime(year, month, day, hour, minute)
-            
+
             # Convert from user's local timezone to UTC for storage
             delivery_time = convert_local_to_utc(local_delivery_time, user_timezone)
-            
+
             # Check if date is in the future
             now_utc = datetime.now(timezone.utc)
             if delivery_time <= now_utc:
                 await message.reply_text(t(lang, 'date_must_be_future'))
                 return SELECTING_DATE
-            
+
             # Check if date is too far in the future based on user's subscription
             from ..config import FREE_TIME_LIMIT_DAYS, PREMIUM_TIME_LIMIT_DAYS, PREMIUM_TIER
             max_days = PREMIUM_TIME_LIMIT_DAYS if user_data.get('subscription_status') == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
-            
+
             max_allowed_date = now_utc + timedelta(days=max_days)
-            
+
             if delivery_time > max_allowed_date:
                 # Format the max days message based on user's subscription
                 await message.reply_text(
-                    t(lang, 'date_too_far', 
-                      days=FREE_TIME_LIMIT_DAYS, 
+                    t(lang, 'date_too_far',
+                      days=FREE_TIME_LIMIT_DAYS,
                       years=PREMIUM_TIME_LIMIT_DAYS//365)
                 )
                 return SELECTING_DATE
-            
+
             context.user_data['capsule']['delivery_time'] = delivery_time
             logger.info(f"Custom delivery time set: {delivery_time} (user's local: {local_delivery_time} in {user_timezone})")
-            
+
             return await ask_for_recipient(update, context)
-            
+
         except ValueError:
             await message.reply_text(t(lang, 'invalid_date'))
             return SELECTING_DATE
@@ -315,7 +307,7 @@ async def select_custom_date(update: Update, context: ContextTypes.DEFAULT_TYPE)
             logger.error(f"Error parsing custom date: {e}")
             await message.reply_text(t(lang, 'invalid_date'))
             return SELECTING_DATE
-    
+
     # If not a text message, reprompt
     await message.reply_text(t(lang, 'enter_date'))
     return SELECTING_DATE
@@ -351,7 +343,7 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Check multiple ways to detect chat selection
     chat_to_send = None
     is_forwarded = False
-    
+
     # Method 1: Check if message has forward_origin (new API v21+)
     if hasattr(message, 'forward_origin') and message.forward_origin:
         is_forwarded = True
@@ -360,18 +352,18 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             chat_to_send = message.forward_origin.chat
         elif hasattr(message.forward_origin, 'sender_chat'):
             chat_to_send = message.forward_origin.sender_chat
-    
+
     # Method 2: Legacy support - check if forward_from_chat exists (v20.x)
     elif hasattr(message, 'forward_from_chat') and message.forward_from_chat:
         chat_to_send = message.forward_from_chat
         is_forwarded = True
-    
+
     # Method 3: Check if user replied to a message in current chat
     elif message.reply_to_message and message.chat.type != 'private':
         # User replied to a message in a group/channel, use current chat
         chat_to_send = message.chat
         is_forwarded = True
-    
+
     # Method 4: Check if message is from a group/channel (not private)
     elif message.chat.type in ['group', 'supergroup', 'channel'] and not message.text:
         # If user sent any non-text message from group/channel, treat as selection
@@ -381,11 +373,11 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     # Case 1: Detected a chat (forwarded or group message)
     if is_forwarded and chat_to_send:
         logger.info(f"User {user.id} selected chat {chat_to_send.id} ({getattr(chat_to_send, 'title', 'Unknown')})")
-        
+
         try:
             # Check if bot is a member and has permissions
             bot_member = await context.bot.get_chat_member(chat_to_send.id, context.bot.id)
-            
+
             if chat_to_send.type == 'channel':
                 # For channels, bot needs post permission
                 if not (hasattr(bot_member, 'can_post_messages') and bot_member.can_post_messages):
@@ -396,7 +388,7 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
             else:
                 # For groups, bot just needs to be a member
                 context.user_data['capsule']['recipient_type'] = 'group'
-                
+
         except BadRequest as e:
             logger.warning(f"Bot access issue for chat {chat_to_send.id}: {e}")
             await message.reply_text(t(lang, 'bot_not_in_chat', chat_title=getattr(chat_to_send, 'title', 'Unknown')))
@@ -416,7 +408,7 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         if not username:
             await message.reply_text(t(lang, 'invalid_username'))
             return PROCESSING_RECIPIENT
-            
+
         context.user_data['capsule']['recipient_type'] = 'user'
         context.user_data['capsule']['recipient_username'] = username
         context.user_data['capsule']['recipient_id'] = None  # Will be resolved when user starts bot
@@ -428,10 +420,10 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         try:
             chat_id = int(message.text)
             chat_info = await context.bot.get_chat(chat_id)
-            
+
             # Check bot permissions
             bot_member = await context.bot.get_chat_member(chat_id, context.bot.id)
-            
+
             if chat_info.type == 'channel':
                 if not (hasattr(bot_member, 'can_post_messages') and bot_member.can_post_messages):
                     await message.reply_text(t(lang, 'no_post_rights', chat_title=getattr(chat_info, 'title', 'Unknown')))
@@ -439,11 +431,11 @@ async def process_recipient(update: Update, context: ContextTypes.DEFAULT_TYPE) 
                 context.user_data['capsule']['recipient_type'] = 'channel'
             else:
                 context.user_data['capsule']['recipient_type'] = 'group'
-            
+
             context.user_data['capsule']['recipient_id'] = chat_id
             context.user_data['capsule']['recipient_name'] = getattr(chat_info, 'title', f"Chat {chat_id}")
             return await show_confirmation(update, context)
-            
+
         except (ValueError, BadRequest) as e:
             logger.warning(f"Invalid chat ID {message.text} from user {user.id}: {e}")
             await message.reply_text(t(lang, 'invalid_chat_id'))
@@ -493,18 +485,18 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     from ..timezone_utils import format_time_for_user
     user_timezone = user_data.get('timezone', 'UTC')
     time_text = format_time_for_user(capsule['delivery_time'], user_timezone, lang)
-    
+
     # Format content type
     content_type_display = t(lang, f"content_{capsule.get('content_type', 'unknown')}")
-    
+
     keyboard = [
         [InlineKeyboardButton(t(lang, "confirm_yes"), callback_data="confirm_yes")],
         [InlineKeyboardButton(t(lang, "confirm_no"), callback_data="cancel")]
     ]
 
-    confirmation_text = t(lang, "confirm_capsule", 
-                         type=content_type_display, 
-                         time=time_text, 
+    confirmation_text = t(lang, "confirm_capsule",
+                         type=content_type_display,
+                         time=time_text,
                          recipient=recipient_text)
 
     await send_menu_with_image(update, context, 'capsules', confirmation_text, InlineKeyboardMarkup(keyboard))
@@ -531,7 +523,7 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     recipient_id_value = capsule_data.get('recipient_id')
     recipient_username_value = capsule_data.get('recipient_username')
     recipient_type = capsule_data['recipient_type']
-    
+
     # Database transaction
     with engine.connect() as conn:
         trans = conn.begin()
@@ -588,28 +580,28 @@ async def confirm_capsule(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     from ..timezone_utils import format_time_for_user
     user_timezone = userdata.get('timezone', 'UTC')
     delivery_time_str = format_time_for_user(capsule_data['delivery_time'], user_timezone, lang)
-    
+
     # Check if this is a username recipient (needs activation)
     needs_activation = (recipient_type == 'user' and recipient_username_value)
-    
+
     if needs_activation:
         # Generate invite link for username recipients
         bot_info = await context.bot.get_me()
         encoded_uuid = base64.urlsafe_b64encode(capsule_uuid.encode()).decode().rstrip('=')
         invite_link = f"https://t.me/{bot_info.username}?start=c_{encoded_uuid}"
-        success_text = t(lang, 'capsule_created_with_link', 
-                        time=delivery_time_str, 
-                        username=f"@{recipient_username_value}", 
+        success_text = t(lang, 'capsule_created_with_link',
+                        time=delivery_time_str,
+                        username=f"@{recipient_username_value}",
                         invite_link=invite_link)
     elif recipient_type in ('group', 'channel'):
-        success_text = t(lang, 'capsule_for_group_created', 
-                        group_name=capsule_data.get('recipient_name', ''), 
+        success_text = t(lang, 'capsule_for_group_created',
+                        group_name=capsule_data.get('recipient_name', ''),
                         delivery_time=delivery_time_str)
     else:
         success_text = t(lang, 'capsule_created', time=delivery_time_str)
 
     keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
-    
+
     # FIXED: Use send_menu_with_image instead of edit_message_text to avoid "no text to edit" error
     await send_menu_with_image(update, context, 'capsules', success_text, InlineKeyboardMarkup(keyboard))
 
@@ -623,7 +615,7 @@ async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     query = update.callback_query
     if query:
         await query.answer()
-    
+
     user = update.effective_user
     user_data = get_user_data(user.id)
     lang = user_data['language_code']
@@ -640,14 +632,14 @@ async def cancel_creation(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     # Clean up user data
     context.user_data.pop('capsule', None)
-    
+
     keyboard = [[InlineKeyboardButton(t(lang, 'main_menu'), callback_data='main_menu')]]
     message_text = t(lang, 'creation_cancelled')
-    
+
     if query:
         # FIXED: Use send_menu_with_image instead of edit_message_text
         await send_menu_with_image(update, context, 'capsules', message_text, InlineKeyboardMarkup(keyboard))
     else:
         await update.message.reply_text(message_text, reply_markup=InlineKeyboardMarkup(keyboard))
-    
+
     return SELECTING_ACTION
