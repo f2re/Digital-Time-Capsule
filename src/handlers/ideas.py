@@ -3,6 +3,7 @@
 
 This module follows the project's handler patterns and uses translations via t().
 """
+import re
 from datetime import datetime, timedelta
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -54,7 +55,9 @@ def _templates_keyboard(lang: str, cat_key: str) -> InlineKeyboardMarkup:
     rows = []
     meta = IDEAS_CATEGORIES.get(cat_key, {})
     for idea_key in meta.get('ideas', []):
+        # Get template title without emoji prefix from category
         title = t(lang, f"{IDEAS_TEMPLATES[idea_key]['title_key']}")
+        # Don't add category icon - template titles already have their own emojis
         rows.append([InlineKeyboardButton(title, callback_data=f'ideas_tpl:{idea_key}')])
     rows.append([
         InlineKeyboardButton(t(lang, 'back'), callback_data='ideas_menu'),
@@ -67,6 +70,7 @@ def _preview_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t(lang, 'ideas_use_template'), callback_data='ideas_use')],
         [InlineKeyboardButton(t(lang, 'ideas_edit_text'), callback_data='ideas_edit')],
+        [InlineKeyboardButton(t(lang, 'ideas_edit_date'), callback_data='ideas_edit_date')],  # NEW
         [InlineKeyboardButton(t(lang, 'back'), callback_data='ideas_back')],
     ])
 
@@ -219,6 +223,14 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
                 await query.message.reply_text(t(lang, 'ideas_enter_text'))
             return EDITING_IDEA_CONTENT
 
+        # Handle edit date request
+        elif data == 'ideas_edit_date':
+            try:
+                await query.message.edit_text(t(lang, 'ideas_enter_date'))
+            except BadRequest:
+                await query.message.reply_text(t(lang, 'ideas_enter_date'))
+            return EDITING_IDEA_DATE
+
         # Handle back to templates
         elif data == 'ideas_back':
             cat_key = context.user_data.get('ideas_current_category')
@@ -320,3 +332,67 @@ async def ideas_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         # Return to main menu in case of error
         from .start import show_main_menu_with_image
         return await show_main_menu_with_image(update, context, user_data)
+
+
+async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle custom date input in Ideas flow."""
+    user = update.effective_user
+    user_data = get_user_data(user.id)
+    lang = user_data.get('language_code', 'en')
+    message = update.message
+    
+    if message and message.text:
+        date_str = message.text.strip()
+        try:
+            from datetime import datetime
+            
+            # Parse DD.MM.YYYY HH:MM format
+            date_pattern = r'^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$'
+            match = re.match(date_pattern, date_str)
+            
+            if not match:
+                await message.reply_text(t(lang, 'invalid_date'))
+                return EDITING_IDEA_DATE
+                
+            day, month, year, hour, minute = map(int, match.groups())
+            new_delivery_time = datetime(year, month, day, hour, minute)
+            
+            # Validate future date
+            if new_delivery_time <= datetime.now():
+                await message.reply_text(t(lang, 'date_must_be_future'))
+                return EDITING_IDEA_DATE
+                
+            # Update context with new delivery time
+            context.user_data[CTX_IDEA_PRESET_DELIVERY] = new_delivery_time
+            
+            # Re-render preview with updated date
+            title = context.user_data.get(CTX_IDEA_TITLE, '')
+            text_content = context.user_data.get(CTX_IDEA_TEXT, '')
+            when = new_delivery_time.strftime('%d.%m.%Y %H:%M')
+            
+            # Get hints
+            idea_key = context.user_data.get(CTX_IDEA_KEY)
+            hints_key = IDEAS_TEMPLATES.get(idea_key, {}).get('hints_key')
+            hints = t(lang, hints_key) if hints_key else ''
+            
+            preview = (
+                f"<b>{title}</b>\n\n"
+                f"{text_content}\n\n"
+                f"<b>{t(lang, 'ideas_preset_time')}</b>: {when}\n\n"
+                f"<b>{t(lang, 'ideas_hints')}</b>\n{hints}"
+            )
+            
+            await message.reply_text(
+                preview, 
+                reply_markup=_preview_keyboard(lang), 
+                parse_mode='HTML'
+            )
+            return EDITING_IDEA_CONTENT
+            
+        except Exception as e:
+            logger.error(f"Error parsing date in ideas flow: {e}")
+            await message.reply_text(t(lang, 'invalid_date'))
+            return EDITING_IDEA_DATE
+    
+    await message.reply_text(t(lang, 'ideas_enter_date'))
+    return EDITING_IDEA_DATE

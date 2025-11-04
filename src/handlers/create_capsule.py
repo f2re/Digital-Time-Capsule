@@ -203,15 +203,27 @@ async def show_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
     prefill_delivery_time = context.user_data.get('capsule', {}).get('prefill_delivery_time')
     
     if prefill_delivery_time:
-        # If prefill delivery time exists, use it directly and skip time selection
+        # FIXED: Ensure timezone awareness
+        from datetime import timezone
+        
+        # Convert to UTC if not already timezone-aware
+        if prefill_delivery_time.tzinfo is None:
+            prefill_delivery_time = prefill_delivery_time.replace(tzinfo=timezone.utc)
+        
         # Validate time limits based on subscription
-        from datetime import datetime, timezone
         now = datetime.now(timezone.utc)
         max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+        
         if (prefill_delivery_time - now).days > max_days:
-            keyboard = [[InlineKeyboardButton(t(lang, 'upgrade_premium'), callback_data='subscription')],
-                        [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]]
-            await send_menu_with_image(update, context, 'capsules', t(lang, 'time_limit_exceeded'), InlineKeyboardMarkup(keyboard))
+            keyboard = [
+                [InlineKeyboardButton(t(lang, 'upgrade_subscription'), callback_data='subscription')],
+                [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]
+            ]
+            await send_menu_with_image(
+                update, context, 'capsules', 
+                t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=PREMIUM_TIME_LIMIT_DAYS//365), 
+                InlineKeyboardMarkup(keyboard)
+            )
             return SELECTING_ACTION
 
         context.user_data['capsule']['delivery_time'] = prefill_delivery_time
@@ -547,10 +559,20 @@ async def show_confirmation(update: Update, context: ContextTypes.DEFAULT_TYPE) 
     elif recipient_type in ("group", "channel"):
         recipient_text = f"{capsule.get('recipient_name', 'Unknown')}"
 
-    # Format time display using user's timezone
-    from ..timezone_utils import format_time_for_user
-    user_timezone = user_data.get('timezone', 'UTC')
-    time_text = format_time_for_user(capsule['delivery_time'], user_timezone, lang)
+    # FIXED: Format time display using user's timezone with proper error handling
+    try:
+        user_timezone = user_data.get('timezone', 'UTC')
+        delivery_time = capsule['delivery_time']
+        
+        # Ensure timezone awareness
+        if delivery_time.tzinfo is None:
+            delivery_time = delivery_time.replace(tzinfo=timezone.utc)
+            
+        time_text = format_time_for_user(delivery_time, user_timezone, lang)
+    except Exception as e:
+        logger.error(f"Error formatting time for user {user.id}: {e}")
+        # Fallback to simple formatting
+        time_text = capsule['delivery_time'].strftime('%d.%m.%Y %H:%M UTC')
 
     # Format content type
     content_type_display = t(lang, f"content_{capsule.get('content_type', 'unknown')}")

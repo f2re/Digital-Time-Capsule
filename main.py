@@ -17,7 +17,7 @@ from src.config import (
     RECEIVING_CONTENT, SELECTING_TIME, SELECTING_DATE, PROCESSING_RECIPIENT,
     CONFIRMING_CAPSULE, VIEWING_CAPSULES, MANAGING_SUBSCRIPTION, MANAGING_SETTINGS,
     SELECTING_PAYMENT_METHOD, SELECTING_CURRENCY, MANAGING_LEGAL_INFO,
-    SELECTING_IDEAS_CATEGORY, SELECTING_IDEA_TEMPLATE, EDITING_IDEA_CONTENT,  # NEW
+    SELECTING_IDEAS_CATEGORY, SELECTING_IDEA_TEMPLATE, EDITING_IDEA_CONTENT, EDITING_IDEA_DATE,  # NEW
     logger
 )
 
@@ -47,7 +47,7 @@ from src.handlers.create_capsule import (
 )
 
 # Ideas Handlers (NEW)
-from src.handlers.ideas import show_ideas_menu, ideas_router, ideas_text_input  # NEW
+from src.handlers.ideas import show_ideas_menu, ideas_router, ideas_text_input, ideas_date_input  # NEW - also added ideas_date_input
 
 # Capsule Management Handlers
 from src.handlers.view_capsules import show_capsules
@@ -204,8 +204,12 @@ async def main():
                 CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_back|main_menu|cancel)$')
             ],
             EDITING_IDEA_CONTENT: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_back|ideas_menu|main_menu|cancel)$'),
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_edit_date|ideas_back|ideas_menu|main_menu|cancel)$'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_text_input),
+            ],
+            EDITING_IDEA_DATE: [  # NEW STATE
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_back|ideas_menu|main_menu|cancel)$'),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_date_input),
             ],
 
             # Capsule Creation States

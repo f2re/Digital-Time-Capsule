@@ -256,7 +256,21 @@ TRANSLATIONS = {
         'ideas_hints': '💡 Подсказки',
         'ideas_use_template': '✅ Использовать',
         'ideas_edit_text': '✏️ Редактировать текст',
+        'ideas_edit_date': '📅 Изменить дату',
         'ideas_enter_text': '✉️ Отправьте текст для капсулы:',
+        'ideas_enter_date': '📅 Введите новую дату доставки в формате ДД.ММ.ГГГГ ЧЧ:ММ\nНапример: 25.12.2025 09:00',
+        'date_must_be_future': '❌ Дата должна быть в будущем',
+        'upgrade_subscription': '⬆️ Обновить подписку',
+        'insufficient_balance': '❌ Недостаточно капсул для создания. Купите капсулы или подписку.',
+        'creation_cancelled': '❌ Создание капсулы отменено',
+        'time_limit_exceeded': '❌ Выбранная дата превышает лимиты вашего тарифа.\n\nБесплатно: до {days} дней\nПремиум: до {years} лет',
+        
+        # Smart timing descriptions for preview
+        'smart_morning_time': 'Завтра утром в 8:00',
+        'smart_evening_time': 'Сегодня/завтра вечером в 20:00',
+        'smart_weekend_time': 'В следующую субботу в 9:00',
+        'smart_monday_time': 'В следующий понедельник в 8:00',
+        'smart_birthday_time': 'В следующем месяце',
         # Categories
         'ideas_category_self_motivation': '🔥 Самомотивация',
         'ideas_category_holidays': '🎊 Праздники',
@@ -603,7 +617,21 @@ If you have payment issues:
         'ideas_hints': '💡 Hints',
         'ideas_use_template': '✅ Use template',
         'ideas_edit_text': '✏️ Edit text',
+        'ideas_edit_date': '📅 Edit Date',
         'ideas_enter_text': '✉️ Send text for the capsule:',
+        'ideas_enter_date': '📅 Enter new delivery date in format DD.MM.YYYY HH:MM\nExample: 25.12.2025 09:00',
+        'date_must_be_future': '❌ Date must be in the future',
+        'upgrade_subscription': '⬆️ Upgrade Subscription',
+        'insufficient_balance': '❌ Insufficient capsules to create. Buy capsules or subscription.',
+        'creation_cancelled': '❌ Capsule creation cancelled',
+        'time_limit_exceeded': '❌ Selected date exceeds your plan limits.\n\nFree: up to {days} days\nPremium: up to {years} years',
+        
+        # Smart timing descriptions for preview
+        'smart_morning_time': 'Tomorrow morning at 8:00 AM',
+        'smart_evening_time': 'Tonight/tomorrow evening at 8:00 PM',
+        'smart_weekend_time': 'Next Saturday at 9:00 AM',
+        'smart_monday_time': 'Next Monday at 8:00 AM',
+        'smart_birthday_time': 'Next month',
         # Categories
         'ideas_category_self_motivation': '🔥 Self-motivation',
         'ideas_category_holidays': '🎊 Holidays',
