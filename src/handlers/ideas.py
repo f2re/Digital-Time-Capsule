@@ -21,7 +21,7 @@ from ..config import (
     PREMIUM_TIER,
     logger
 )
-from ..ideas_templates import IDEAS_CATEGORIES, IDEAS_TEMPLATES, dt_in_days, next_new_year
+from ..ideas_templates import IDEAS_CATEGORIES, IDEAS_TEMPLATES, dt_in_days, next_new_year, next_morning, next_evening, next_weekend_morning, next_monday_morning, next_birthday_month, _compute_delivery as ideas_templates_compute_delivery
 from ..database import get_user_data, get_or_create_user
 
 # Keys in context.user_data used in this flow
@@ -33,16 +33,7 @@ CTX_IDEA_CONTENT_TYPE = "idea_content_type"
 CTX_IDEA_RECIPIENT = "idea_recipient"
 
 
-def _compute_delivery(preset):
-    """Compute delivery datetime from a preset descriptor.
-    preset can be a dict like {'days': 30} or string 'next_new_year'.
-    """
-    if isinstance(preset, dict) and 'days' in preset:
-        return dt_in_days(int(preset['days']))
-    if preset == 'next_new_year':
-        return next_new_year()
-    # default fallback: 30 days
-    return dt_in_days(30)
+
 
 
 def _category_keyboard(lang: str) -> InlineKeyboardMarkup:
@@ -211,7 +202,7 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             context.user_data[CTX_IDEA_RECIPIENT] = tpl.get('recipient_preset', 'self')
             
             delivery_preset = tpl.get('delivery_preset')
-            context.user_data[CTX_IDEA_PRESET_DELIVERY] = _compute_delivery(delivery_preset)
+            context.user_data[CTX_IDEA_PRESET_DELIVERY] = ideas_templates_compute_delivery(delivery_preset)
 
             return await _show_idea_preview(update, context, lang)
 
@@ -241,13 +232,13 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
             
             if days > max_days:
-                await query.answer(t(lang, 'date_exceeds_limit'), show_alert=True)
+                await query.answer(t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=PREMIUM_TIME_LIMIT_DAYS//365), show_alert=True)
                 return EDITING_IDEA_DATE
             
             new_delivery_time = datetime.now() + timedelta(days=days)
             context.user_data[CTX_IDEA_PRESET_DELIVERY] = new_delivery_time
             
-            await query.answer(t(lang, 'date_updated'))
+            await query.answer(t(lang, 'date_updated_success'))
             return await _show_idea_preview(update, context, lang)
 
         # Handle back to preview from date editing
