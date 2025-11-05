@@ -208,7 +208,8 @@ async def main():
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_text_input),
             ],
             EDITING_IDEA_DATE: [  # NEW STATE
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_back|ideas_menu|main_menu|cancel)$'),
+                CallbackQueryHandler(ideas_router, pattern='^ideas_quick_date:'),
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_back|ideas_menu|main_menu|cancel|ideas_quick_date|ideas_back_to_preview)$'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_date_input),
             ],
 

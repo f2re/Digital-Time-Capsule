@@ -92,7 +92,7 @@ async def show_ideas_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
 
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+
     if not user_data:
         # User might not be registered, try to create user first
         try:
@@ -100,7 +100,7 @@ async def show_ideas_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
             user_data = get_user_data(user.id)
         except Exception as e:
             logger.error(f"Failed to create user {user.id}: {e}")
-        
+
         if not user_data:
             logger.error(f"Failed to create/get user data for user {user.id}")
             # Fallback to main menu
@@ -113,7 +113,7 @@ async def show_ideas_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     try:
         text = t(lang, 'ideas_menu_title')
         keyboard = _category_keyboard(lang)
-        
+
         if query:
             try:
                 await query.message.edit_text(text, reply_markup=keyboard)
@@ -126,7 +126,7 @@ async def show_ideas_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         logger.error(f"Error showing ideas menu to user {user.id}: {e}")
         from .start import show_main_menu_with_image
         return await show_main_menu_with_image(update, context, user_data)
-    
+
     return SELECTING_IDEAS_CATEGORY
 
 
@@ -138,30 +138,30 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
     else:
         logger.warning("ideas_router called without callback query")
         return SELECTING_ACTION
-        
+
     data = query.data if query else ''
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+
     if not user_data:
         logger.error(f"User data not found for user {user.id} in ideas_router")
         from .start import show_main_menu_with_image
         basic_user_data = {'id': user.id, 'language_code': 'en'}
         return await show_main_menu_with_image(update, context, basic_user_data)
-    
-    lang = user_data.get('language_code', 'en')
 
+    lang = user_data.get('language_code', 'en')
+    logger.error(data)
     try:
         # Handle return to categories
         if data == 'ideas_menu':
             try:
                 await query.message.edit_text(
-                    t(lang, 'ideas_menu_title'), 
+                    t(lang, 'ideas_menu_title'),
                     reply_markup=_category_keyboard(lang)
                 )
             except BadRequest:
                 await query.message.reply_text(
-                    t(lang, 'ideas_menu_title'), 
+                    t(lang, 'ideas_menu_title'),
                     reply_markup=_category_keyboard(lang)
                 )
             return SELECTING_IDEAS_CATEGORY
@@ -172,16 +172,16 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             if cat_key not in IDEAS_CATEGORIES:
                 logger.warning(f"Invalid category key: {cat_key}")
                 return await show_ideas_menu(update, context)
-                
+
             title = t(lang, f'ideas_category_{cat_key}')
             text = f"{t(lang, 'ideas_select_template_from')} {title}"
             keyboard = _templates_keyboard(lang, cat_key)
-            
+
             try:
                 await query.message.edit_text(text, reply_markup=keyboard)
             except BadRequest:
                 await query.message.reply_text(text, reply_markup=keyboard)
-            
+
             # Store current category for navigation
             context.user_data['ideas_current_category'] = cat_key
             return SELECTING_IDEA_TEMPLATE
@@ -193,14 +193,14 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             if not tpl:
                 logger.warning(f"Idea template not found: {idea_key} for user {user.id}")
                 return await show_ideas_menu(update, context)
-                
+
             # Fill context presets
             context.user_data[CTX_IDEA_KEY] = idea_key
             context.user_data[CTX_IDEA_TITLE] = t(lang, tpl['title_key'])
             context.user_data[CTX_IDEA_TEXT] = t(lang, tpl['text_key'])
             context.user_data[CTX_IDEA_CONTENT_TYPE] = tpl.get('content_type', 'text')
             context.user_data[CTX_IDEA_RECIPIENT] = tpl.get('recipient_preset', 'self')
-            
+
             delivery_preset = tpl.get('delivery_preset')
             context.user_data[CTX_IDEA_PRESET_DELIVERY] = ideas_templates_compute_delivery(delivery_preset)
 
@@ -227,17 +227,17 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         # Handle quick date selection - NEW FEATURE
         elif data.startswith('ideas_quick_date:'):
             days = int(data.split(':', 1)[1])
-            
+
             # Validate time limits based on subscription
             max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
-            
+
             if days > max_days:
                 await query.answer(t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=PREMIUM_TIME_LIMIT_DAYS//365), show_alert=True)
                 return EDITING_IDEA_DATE
-            
+
             new_delivery_time = datetime.now() + timedelta(days=days)
             context.user_data[CTX_IDEA_PRESET_DELIVERY] = new_delivery_time
-            
+
             await query.answer(t(lang, 'date_updated_success'))
             return await _show_idea_preview(update, context, lang)
 
@@ -250,11 +250,11 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             cat_key = context.user_data.get('ideas_current_category')
             if not cat_key:
                 return await show_ideas_menu(update, context)
-                
+
             title = t(lang, f'ideas_category_{cat_key}')
             text = f"{t(lang, 'ideas_select_template_from')} {title}"
             keyboard = _templates_keyboard(lang, cat_key)
-            
+
             try:
                 await query.message.edit_text(text, reply_markup=keyboard)
             except BadRequest:
@@ -267,17 +267,17 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             context.user_data['prefill_text'] = context.user_data.get(CTX_IDEA_TEXT)
             context.user_data['prefill_content_type'] = context.user_data.get(CTX_IDEA_CONTENT_TYPE, 'text')
             context.user_data['prefill_recipient'] = context.user_data.get(CTX_IDEA_RECIPIENT, 'self')
-            
+
             # Store delivery datetime as ISO string for create flow
             dt = context.user_data.get(CTX_IDEA_PRESET_DELIVERY)
             if dt:
                 context.user_data['prefill_delivery_iso'] = dt.isoformat()
-            
+
             # Clear ideas context
             for key in [CTX_IDEA_KEY, CTX_IDEA_TEXT, CTX_IDEA_TITLE, CTX_IDEA_PRESET_DELIVERY, CTX_IDEA_CONTENT_TYPE, CTX_IDEA_RECIPIENT]:
                 context.user_data.pop(key, None)
             context.user_data.pop('ideas_current_category', None)
-            
+
             # Jump to create flow
             from .create_capsule import start_create_capsule
             return await start_create_capsule(update, context)
@@ -288,15 +288,15 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             for key in [CTX_IDEA_KEY, CTX_IDEA_TEXT, CTX_IDEA_TITLE, CTX_IDEA_PRESET_DELIVERY, CTX_IDEA_CONTENT_TYPE, CTX_IDEA_RECIPIENT]:
                 context.user_data.pop(key, None)
             context.user_data.pop('ideas_current_category', None)
-            
+
             from .start import show_main_menu_with_image
             return await show_main_menu_with_image(update, context, user_data)
-        
+
         # Unknown callback data
         else:
             logger.warning(f"Unknown callback data in ideas_router: {data}")
             return await show_ideas_menu(update, context)
-    
+
     except Exception as e:
         logger.error(f"Error in ideas_router for user {user.id}, data: {data}, error: {e}")
         # In case of any error, return to main menu
@@ -323,29 +323,29 @@ async def _show_idea_preview(update: Update, context: ContextTypes.DEFAULT_TYPE,
         f"<b>{t(lang, 'ideas_preset_time')}</b>: {when}\n\n"
         f"<b>{t(lang, 'ideas_hints')}</b>\n{hints}"
     )
-    
+
     try:
         query = update.callback_query
         if query:
             await query.message.edit_text(
-                preview, 
-                reply_markup=_preview_keyboard(lang), 
+                preview,
+                reply_markup=_preview_keyboard(lang),
                 parse_mode='HTML'
             )
         else:
             await update.message.reply_text(
-                preview, 
-                reply_markup=_preview_keyboard(lang), 
+                preview,
+                reply_markup=_preview_keyboard(lang),
                 parse_mode='HTML'
             )
     except BadRequest:
         # If edit fails, send new message
         await update.effective_message.reply_text(
-            preview, 
-            reply_markup=_preview_keyboard(lang), 
+            preview,
+            reply_markup=_preview_keyboard(lang),
             parse_mode='HTML'
         )
-    
+
     return EDITING_IDEA_CONTENT
 
 
@@ -353,23 +353,23 @@ async def ideas_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Capture edited text from user during Ideas flow and return to preview."""
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+
     if not user_data:
         logger.error(f"User data not found for user {user.id} in ideas_text_input")
         from .start import show_main_menu_with_image
         basic_user_data = {'id': user.id, 'language_code': 'en'}
         return await show_main_menu_with_image(update, context, basic_user_data)
-    
+
     lang = user_data.get('language_code', 'en')
 
     try:
         text = (update.message.text or '').strip()
         if text:
             context.user_data[CTX_IDEA_TEXT] = text
-            
+
         # Show preview with updated text
         return await _show_idea_preview(update, context, lang)
-        
+
     except Exception as e:
         logger.error(f"Error in ideas_text_input for user {user.id}, error: {e}")
         # Return to main menu in case of error
@@ -381,34 +381,34 @@ async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Handle custom date input in Ideas flow - COMPLETELY FIXED."""
     user = update.effective_user
     user_data = get_user_data(user.id)
-    
+
     if not user_data:
         logger.error(f"User data not found for user {user.id} in ideas_date_input")
         from .start import show_main_menu_with_image
         basic_user_data = {'id': user.id, 'language_code': 'en'}
         return await show_main_menu_with_image(update, context, basic_user_data)
-    
+
     lang = user_data.get('language_code', 'en')
     message = update.message
-    
+
     if message and message.text:
         date_str = message.text.strip()
         try:
             from datetime import datetime, timezone
-            
+
             # Parse DD.MM.YYYY HH:MM format
             date_pattern = r'^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$'
             match = re.match(date_pattern, date_str)
-            
+
             if not match:
                 await message.reply_text(
                     f"{t(lang, 'invalid_date')}\n\n{t(lang, 'date_format_example')}",
                     reply_markup=_date_edit_keyboard(lang)
                 )
                 return EDITING_IDEA_DATE
-                
+
             day, month, year, hour, minute = map(int, match.groups())
-            
+
             # Validate date components
             if not (1 <= day <= 31 and 1 <= month <= 12 and year >= datetime.now().year and 0 <= hour <= 23 and 0 <= minute <= 59):
                 await message.reply_text(
@@ -416,7 +416,7 @@ async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     reply_markup=_date_edit_keyboard(lang)
                 )
                 return EDITING_IDEA_DATE
-            
+
             try:
                 new_delivery_time = datetime(year, month, day, hour, minute)
             except ValueError:
@@ -425,7 +425,7 @@ async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     reply_markup=_date_edit_keyboard(lang)
                 )
                 return EDITING_IDEA_DATE
-            
+
             # Validate future date
             if new_delivery_time <= datetime.now():
                 await message.reply_text(
@@ -433,11 +433,11 @@ async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     reply_markup=_date_edit_keyboard(lang)
                 )
                 return EDITING_IDEA_DATE
-            
+
             # Check subscription limits
             max_days = PREMIUM_TIME_LIMIT_DAYS if user_data.get('subscription_status') == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
             days_diff = (new_delivery_time - datetime.now()).days
-            
+
             if days_diff > max_days:
                 limit_text = t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=PREMIUM_TIME_LIMIT_DAYS//365)
                 await message.reply_text(
@@ -445,16 +445,16 @@ async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                     reply_markup=_date_edit_keyboard(lang)
                 )
                 return EDITING_IDEA_DATE
-                
+
             # Update context with new delivery time
             context.user_data[CTX_IDEA_PRESET_DELIVERY] = new_delivery_time
-            
+
             # Show success message and return to preview
             await message.reply_text(t(lang, 'date_updated_success'))
-            
+
             # Show preview with updated date
             return await _show_idea_preview(update, context, lang)
-            
+
         except Exception as e:
             logger.error(f"Error parsing date in ideas flow for user {user.id}: {e}")
             await message.reply_text(
@@ -462,7 +462,7 @@ async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 reply_markup=_date_edit_keyboard(lang)
             )
             return EDITING_IDEA_DATE
-    
+
     # If not a valid text message, show help again
     await message.reply_text(
         f"{t(lang, 'ideas_enter_date')}\n\n{t(lang, 'date_format_example')}",
