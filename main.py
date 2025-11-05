@@ -191,7 +191,7 @@ async def main():
             # Main Menu State
             SELECTING_ACTION: [
                 CallbackQueryHandler(main_menu_handler),
-                CallbackQueryHandler(select_language, pattern='^set_lang_')
+                CallbackQueryHandler(select_language, pattern='^set_lang_'),
             ],
 
             # Ideas States (FIXED PATTERNS)
@@ -279,7 +279,7 @@ async def main():
 
             # Legal Info States
             MANAGING_LEGAL_INFO: [
-                CallbackQueryHandler(legal_info_handler, pattern="^(legal_contacts|legal_requisites|legal_terms|legal_refund)$"),
+                CallbackQueryHandler(legal_info_handler, pattern="^(legal_contacts|legal_requisites|legal_terms|legal_refund|legal_seller|legal_products|legal_privacy)$"),
                 CallbackQueryHandler(show_legal_info_menu, pattern="^legal_info_menu$"),
                 CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
             ],

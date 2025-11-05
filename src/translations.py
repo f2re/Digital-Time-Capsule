@@ -241,19 +241,27 @@ TRANSLATIONS = {
         'legal_info_title': '⚖️ Правовая информация',
         'legal_contacts': 'Контакты',
         'legal_requisites': 'Реквизиты',
-        'legal_terms': 'Условия предоставления услуг',
+        'legal_terms': 'Условия использования',
         'legal_refund': 'Политика возврата',
         'legal_contacts_text': '📧 Email: {email}\n💬 Telegram: {telegram_url}',
         'legal_terms_text': 'Условия предоставления услуг https://disk.yandex.ru/i/z7VJXXGoYuz-vA',
         'legal_refund_text': 'Для осуществления возврата средств, пожалуйста, свяжитесь с нашей службой поддержки: {telegram_url}',
         'chatid_info': '🆔 ID текущего чата: <code>{chat_id}</code>\nТип чата: {chat_type}',
 
+        # New Legal Menu Entries
+        'terms_of_service': '📋 Условия использования',
+        'refund_policy': '💰 Политика возврата',
+        'privacy_policy': '🔒 Конфиденциальность',
+        'seller_info': 'ℹ️ О продавце',
+        'product_catalog': '📦 Каталог товаров',
+        'back': '← Назад',
+
         # Ideas UI
-        'ideas_button': '💡 Идеи',
+        'ideas_button': 'Идеи',
         'ideas_menu_title': 'Выберите категорию идей',
         'ideas_select_template_from': 'Выберите идею из 📁',
         'ideas_preset_time': '⏰ Предзаполнённое время доставки',
-        'ideas_hints': '💡 Подсказки',
+        'ideas_hints': 'Подсказки',
         'ideas_use_template': '✅ Использовать',
         'ideas_edit_text': '✏️ Редактировать текст',
         'ideas_edit_date': '📅 Изменить дату',
@@ -264,7 +272,7 @@ TRANSLATIONS = {
         'insufficient_balance': '❌ Недостаточно капсул для создания. Купите капсулы или подписку.',
         'creation_cancelled': '❌ Создание капсулы отменено',
         'time_limit_exceeded': '❌ Выбранная дата превышает лимиты вашего тарифа.\n\nБесплатно: до {days} дней\nПремиум: до {years} лет',
-        
+
         # Smart timing descriptions for preview
         'smart_morning_time': 'Завтра утром в 8:00',
         'smart_evening_time': 'Сегодня/завтра вечером в 20:00',
@@ -272,12 +280,12 @@ TRANSLATIONS = {
         'smart_monday_time': 'В следующий понедельник в 8:00',
         'smart_birthday_time': 'В следующем месяце',
         # Categories
-        'ideas_category_self_motivation': '🔥 Самомотивация',
-        'ideas_category_holidays': '🎊 Праздники',
-        'ideas_category_daily_reflection': '🌅 Подведение итогов',
-        'ideas_category_relationships': '💕 Отношения',
-        'ideas_category_goals_plans': '🎯 Цели и планы',
-        'ideas_category_memories': '📸 Воспоминания',
+        'ideas_category_self_motivation': 'Самомотивация',
+        'ideas_category_holidays': 'Праздники',
+        'ideas_category_daily_reflection': 'Подведение итогов',
+        'ideas_category_relationships': 'Отношения',
+        'ideas_category_goals_plans': 'Цели и планы',
+        'ideas_category_memories': 'Воспоминания',
         # Templates
         'idea_morning_motivation_title': '🌅 Утренняя мотивация',
         'idea_morning_motivation_text': 'Доброе утро, будущий я! Напомни себе, зачем ты начал этот путь и какие шаги ты сделаешь сегодня.',
@@ -357,7 +365,7 @@ TRANSLATIONS = {
         'idea_wisdom_note_text': 'Запиши мысль, к которой хочешь вернуться, и контекст, где она родилась.',
         'idea_wisdom_note_hints': '💡 Мысль\n📝 Контекст\n🔄 Применение',
     },
-    
+
     'en': {
         'select_language': '🌐 Выберите язык / Select language:',
         'language_russian': '🇷🇺 Русский',
@@ -547,7 +555,7 @@ If you have payment issues:
                             '💌 From: {sender_name}\n'
                             '⏰ Created: {created_at}\n\n'
                             '{content}',
-        
+
         # Delivery messages
         'capsule_delivered_title': 'Time Capsule Delivered!',
         'from': 'From',
@@ -609,6 +617,14 @@ If you have payment issues:
         'legal_refund_text': 'To request a refund, please contact our support team: {telegram_url}',
         'chatid_info': '🆔 Current chat ID: <code>{chat_id}</code>\nChat type: {chat_type}',
 
+        # New Legal Menu Entries
+        'terms_of_service': '📋 Terms of Service',
+        'refund_policy': '💰 Refund Policy',
+        'privacy_policy': '🔒 Privacy',
+        'seller_info': 'ℹ️ About Us',
+        'product_catalog': '📦 Catalog',
+        'back': '← Back',
+
         # Ideas UI
         'ideas_button': '💡 Ideas',
         'ideas_menu_title': 'Choose an ideas category',
@@ -625,7 +641,7 @@ If you have payment issues:
         'insufficient_balance': '❌ Insufficient capsules to create. Buy capsules or subscription.',
         'creation_cancelled': '❌ Capsule creation cancelled',
         'time_limit_exceeded': '❌ Selected date exceeds your plan limits.\n\nFree: up to {days} days\nPremium: up to {years} years',
-        
+
         # Smart timing descriptions for preview
         'smart_morning_time': 'Tomorrow morning at 8:00 AM',
         'smart_evening_time': 'Tonight/tomorrow evening at 8:00 PM',

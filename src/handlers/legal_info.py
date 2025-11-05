@@ -15,6 +15,9 @@ def get_legal_info_keyboard(lang: str) -> InlineKeyboardMarkup:
         [InlineKeyboardButton(t(lang, 'legal_requisites'), callback_data='legal_requisites')],
         [InlineKeyboardButton(t(lang, 'legal_terms'), callback_data='legal_terms')],
         [InlineKeyboardButton(t(lang, 'legal_refund'), callback_data='legal_refund')],
+        [InlineKeyboardButton(t(lang, 'seller_info'), callback_data='legal_seller')],
+        [InlineKeyboardButton(t(lang, 'product_catalog'), callback_data='legal_products')],
+        [InlineKeyboardButton(t(lang, 'privacy_policy'), callback_data='legal_privacy')],
         [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]
     ]
     return InlineKeyboardMarkup(keyboard)
@@ -61,6 +64,15 @@ async def legal_info_handler(update: Update, context: ContextTypes.DEFAULT_TYPE)
         text = t(lang, 'legal_terms_text')
     elif action == 'legal_refund':
         text = t(lang, 'legal_refund_text', telegram_url=SUPPORT_TELEGRAM_URL)
+    elif action == 'legal_seller':
+        from ..utils.legal_helper import get_seller_info_text
+        text = get_seller_info_text(lang)
+    elif action == 'legal_products':
+        from ..utils.legal_helper import get_product_catalog_text
+        text = get_product_catalog_text(lang)
+    elif action == 'legal_privacy':
+        from ..utils.legal_helper import get_privacy_policy_text
+        text = get_privacy_policy_text(lang)
     else:
         # If it's not a recognized legal content action, return to avoid processing
         return MANAGING_LEGAL_INFO
