@@ -14,7 +14,11 @@ from ..config import (
     SELECTING_IDEAS_CATEGORY,
     SELECTING_IDEA_TEMPLATE,
     EDITING_IDEA_CONTENT,
+    EDITING_IDEA_DATE,
     SELECTING_ACTION,
+    FREE_TIME_LIMIT_DAYS,
+    PREMIUM_TIME_LIMIT_DAYS,
+    PREMIUM_TIER,
     logger
 )
 from ..ideas_templates import IDEAS_CATEGORIES, IDEAS_TEMPLATES, dt_in_days, next_new_year
@@ -70,8 +74,19 @@ def _preview_keyboard(lang: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(t(lang, 'ideas_use_template'), callback_data='ideas_use')],
         [InlineKeyboardButton(t(lang, 'ideas_edit_text'), callback_data='ideas_edit')],
-        [InlineKeyboardButton(t(lang, 'ideas_edit_date'), callback_data='ideas_edit_date')],  # NEW
+        [InlineKeyboardButton(t(lang, 'ideas_edit_date'), callback_data='ideas_edit_date')],
         [InlineKeyboardButton(t(lang, 'back'), callback_data='ideas_back')],
+    ])
+
+
+def _date_edit_keyboard(lang: str) -> InlineKeyboardMarkup:
+    """Keyboard for date editing with helpful buttons"""
+    return InlineKeyboardMarkup([
+        [InlineKeyboardButton(t(lang, 'date_quick_1week'), callback_data='ideas_quick_date:7')],
+        [InlineKeyboardButton(t(lang, 'date_quick_1month'), callback_data='ideas_quick_date:30')],
+        [InlineKeyboardButton(t(lang, 'date_quick_3months'), callback_data='ideas_quick_date:90')],
+        [InlineKeyboardButton(t(lang, 'date_quick_1year'), callback_data='ideas_quick_date:365')],
+        [InlineKeyboardButton(t(lang, 'back'), callback_data='ideas_back_to_preview')],
     ])
 
 
@@ -198,22 +213,7 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
             delivery_preset = tpl.get('delivery_preset')
             context.user_data[CTX_IDEA_PRESET_DELIVERY] = _compute_delivery(delivery_preset)
 
-            # Compose preview text
-            hints = t(lang, tpl['hints_key'])
-            dt = context.user_data[CTX_IDEA_PRESET_DELIVERY]
-            when = dt.strftime('%d.%m.%Y %H:%M')
-            preview = (
-                f"<b>{context.user_data[CTX_IDEA_TITLE]}</b>\n\n"
-                f"{context.user_data[CTX_IDEA_TEXT]}\n\n"
-                f"<b>{t(lang, 'ideas_preset_time')}</b>: {when}\n\n"
-                f"<b>{t(lang, 'ideas_hints')}</b>\n{hints}"
-            )
-            
-            try:
-                await query.message.edit_text(preview, reply_markup=_preview_keyboard(lang), parse_mode='HTML')
-            except BadRequest:
-                await query.message.reply_text(preview, reply_markup=_preview_keyboard(lang), parse_mode='HTML')
-            return EDITING_IDEA_CONTENT
+            return await _show_idea_preview(update, context, lang)
 
         # Handle edit text request
         elif data == 'ideas_edit':
@@ -223,13 +223,36 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
                 await query.message.reply_text(t(lang, 'ideas_enter_text'))
             return EDITING_IDEA_CONTENT
 
-        # Handle edit date request
+        # Handle edit date request - FIXED: Show better date selection menu
         elif data == 'ideas_edit_date':
+            text = f"{t(lang, 'ideas_enter_date')}\n\n{t(lang, 'date_format_example')}"
+            keyboard = _date_edit_keyboard(lang)
             try:
-                await query.message.edit_text(t(lang, 'ideas_enter_date'))
+                await query.message.edit_text(text, reply_markup=keyboard)
             except BadRequest:
-                await query.message.reply_text(t(lang, 'ideas_enter_date'))
+                await query.message.reply_text(text, reply_markup=keyboard)
             return EDITING_IDEA_DATE
+
+        # Handle quick date selection - NEW FEATURE
+        elif data.startswith('ideas_quick_date:'):
+            days = int(data.split(':', 1)[1])
+            
+            # Validate time limits based on subscription
+            max_days = PREMIUM_TIME_LIMIT_DAYS if user_data['subscription_status'] == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+            
+            if days > max_days:
+                await query.answer(t(lang, 'date_exceeds_limit'), show_alert=True)
+                return EDITING_IDEA_DATE
+            
+            new_delivery_time = datetime.now() + timedelta(days=days)
+            context.user_data[CTX_IDEA_PRESET_DELIVERY] = new_delivery_time
+            
+            await query.answer(t(lang, 'date_updated'))
+            return await _show_idea_preview(update, context, lang)
+
+        # Handle back to preview from date editing
+        elif data == 'ideas_back_to_preview':
+            return await _show_idea_preview(update, context, lang)
 
         # Handle back to templates
         elif data == 'ideas_back':
@@ -270,6 +293,11 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
 
         # Handle fallback cases
         elif data in ('main_menu', 'cancel'):
+            # Clean up ideas context before going to main menu
+            for key in [CTX_IDEA_KEY, CTX_IDEA_TEXT, CTX_IDEA_TITLE, CTX_IDEA_PRESET_DELIVERY, CTX_IDEA_CONTENT_TYPE, CTX_IDEA_RECIPIENT]:
+                context.user_data.pop(key, None)
+            context.user_data.pop('ideas_current_category', None)
+            
             from .start import show_main_menu_with_image
             return await show_main_menu_with_image(update, context, user_data)
         
@@ -283,6 +311,51 @@ async def ideas_router(update: Update, context: ContextTypes.DEFAULT_TYPE) -> in
         # In case of any error, return to main menu
         from .start import show_main_menu_with_image
         return await show_main_menu_with_image(update, context, user_data)
+
+
+async def _show_idea_preview(update: Update, context: ContextTypes.DEFAULT_TYPE, lang: str) -> int:
+    """Show the idea preview with current settings"""
+    # Compose preview text
+    title = context.user_data.get(CTX_IDEA_TITLE, '')
+    text_content = context.user_data.get(CTX_IDEA_TEXT, '')
+    dt = context.user_data.get(CTX_IDEA_PRESET_DELIVERY, datetime.now() + timedelta(days=30))
+    when = dt.strftime('%d.%m.%Y %H:%M')
+
+    # Retrieve original hints
+    idea_key = context.user_data.get(CTX_IDEA_KEY)
+    hints_key = IDEAS_TEMPLATES.get(idea_key, {}).get('hints_key')
+    hints = t(lang, hints_key) if hints_key else ''
+
+    preview = (
+        f"<b>{title}</b>\n\n"
+        f"{text_content}\n\n"
+        f"<b>{t(lang, 'ideas_preset_time')}</b>: {when}\n\n"
+        f"<b>{t(lang, 'ideas_hints')}</b>\n{hints}"
+    )
+    
+    try:
+        query = update.callback_query
+        if query:
+            await query.message.edit_text(
+                preview, 
+                reply_markup=_preview_keyboard(lang), 
+                parse_mode='HTML'
+            )
+        else:
+            await update.message.reply_text(
+                preview, 
+                reply_markup=_preview_keyboard(lang), 
+                parse_mode='HTML'
+            )
+    except BadRequest:
+        # If edit fails, send new message
+        await update.effective_message.reply_text(
+            preview, 
+            reply_markup=_preview_keyboard(lang), 
+            parse_mode='HTML'
+        )
+    
+    return EDITING_IDEA_CONTENT
 
 
 async def ideas_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -303,29 +376,8 @@ async def ideas_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if text:
             context.user_data[CTX_IDEA_TEXT] = text
             
-        # Re-render preview
-        title = context.user_data.get(CTX_IDEA_TITLE, '')
-        dt = context.user_data.get(CTX_IDEA_PRESET_DELIVERY, datetime.now() + timedelta(days=30))
-        when = dt.strftime('%d.%m.%Y %H:%M')
-
-        # Retrieve original hints
-        idea_key = context.user_data.get(CTX_IDEA_KEY)
-        hints_key = IDEAS_TEMPLATES.get(idea_key, {}).get('hints_key')
-        hints = t(lang, hints_key) if hints_key else ''
-
-        preview = (
-            f"<b>{title}</b>\n\n"
-            f"{context.user_data.get(CTX_IDEA_TEXT, '')}\n\n"
-            f"<b>{t(lang, 'ideas_preset_time')}</b>: {when}\n\n"
-            f"<b>{t(lang, 'ideas_hints')}</b>\n{hints}"
-        )
-        
-        await update.message.reply_text(
-            preview, 
-            reply_markup=_preview_keyboard(lang), 
-            parse_mode='HTML'
-        )
-        return EDITING_IDEA_CONTENT
+        # Show preview with updated text
+        return await _show_idea_preview(update, context, lang)
         
     except Exception as e:
         logger.error(f"Error in ideas_text_input for user {user.id}, error: {e}")
@@ -335,64 +387,94 @@ async def ideas_text_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -
 
 
 async def ideas_date_input(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Handle custom date input in Ideas flow."""
+    """Handle custom date input in Ideas flow - COMPLETELY FIXED."""
     user = update.effective_user
     user_data = get_user_data(user.id)
+    
+    if not user_data:
+        logger.error(f"User data not found for user {user.id} in ideas_date_input")
+        from .start import show_main_menu_with_image
+        basic_user_data = {'id': user.id, 'language_code': 'en'}
+        return await show_main_menu_with_image(update, context, basic_user_data)
+    
     lang = user_data.get('language_code', 'en')
     message = update.message
     
     if message and message.text:
         date_str = message.text.strip()
         try:
-            from datetime import datetime
+            from datetime import datetime, timezone
             
             # Parse DD.MM.YYYY HH:MM format
-            date_pattern = r'^(\d{2})\.(\d{2})\.(\d{4})\s+(\d{2}):(\d{2})$'
+            date_pattern = r'^(\d{1,2})\.(\d{1,2})\.(\d{4})\s+(\d{1,2}):(\d{2})$'
             match = re.match(date_pattern, date_str)
             
             if not match:
-                await message.reply_text(t(lang, 'invalid_date'))
+                await message.reply_text(
+                    f"{t(lang, 'invalid_date')}\n\n{t(lang, 'date_format_example')}",
+                    reply_markup=_date_edit_keyboard(lang)
+                )
                 return EDITING_IDEA_DATE
                 
             day, month, year, hour, minute = map(int, match.groups())
-            new_delivery_time = datetime(year, month, day, hour, minute)
+            
+            # Validate date components
+            if not (1 <= day <= 31 and 1 <= month <= 12 and year >= datetime.now().year and 0 <= hour <= 23 and 0 <= minute <= 59):
+                await message.reply_text(
+                    f"{t(lang, 'invalid_date')}\n\n{t(lang, 'date_format_example')}",
+                    reply_markup=_date_edit_keyboard(lang)
+                )
+                return EDITING_IDEA_DATE
+            
+            try:
+                new_delivery_time = datetime(year, month, day, hour, minute)
+            except ValueError:
+                await message.reply_text(
+                    f"{t(lang, 'invalid_date')}\n\n{t(lang, 'date_format_example')}",
+                    reply_markup=_date_edit_keyboard(lang)
+                )
+                return EDITING_IDEA_DATE
             
             # Validate future date
             if new_delivery_time <= datetime.now():
-                await message.reply_text(t(lang, 'date_must_be_future'))
+                await message.reply_text(
+                    f"{t(lang, 'date_must_be_future')}\n\n{t(lang, 'date_format_example')}",
+                    reply_markup=_date_edit_keyboard(lang)
+                )
+                return EDITING_IDEA_DATE
+            
+            # Check subscription limits
+            max_days = PREMIUM_TIME_LIMIT_DAYS if user_data.get('subscription_status') == PREMIUM_TIER else FREE_TIME_LIMIT_DAYS
+            days_diff = (new_delivery_time - datetime.now()).days
+            
+            if days_diff > max_days:
+                limit_text = t(lang, 'date_too_far', days=FREE_TIME_LIMIT_DAYS, years=PREMIUM_TIME_LIMIT_DAYS//365)
+                await message.reply_text(
+                    f"{limit_text}\n\n{t(lang, 'date_format_example')}",
+                    reply_markup=_date_edit_keyboard(lang)
+                )
                 return EDITING_IDEA_DATE
                 
             # Update context with new delivery time
             context.user_data[CTX_IDEA_PRESET_DELIVERY] = new_delivery_time
             
-            # Re-render preview with updated date
-            title = context.user_data.get(CTX_IDEA_TITLE, '')
-            text_content = context.user_data.get(CTX_IDEA_TEXT, '')
-            when = new_delivery_time.strftime('%d.%m.%Y %H:%M')
+            # Show success message and return to preview
+            await message.reply_text(t(lang, 'date_updated_success'))
             
-            # Get hints
-            idea_key = context.user_data.get(CTX_IDEA_KEY)
-            hints_key = IDEAS_TEMPLATES.get(idea_key, {}).get('hints_key')
-            hints = t(lang, hints_key) if hints_key else ''
-            
-            preview = (
-                f"<b>{title}</b>\n\n"
-                f"{text_content}\n\n"
-                f"<b>{t(lang, 'ideas_preset_time')}</b>: {when}\n\n"
-                f"<b>{t(lang, 'ideas_hints')}</b>\n{hints}"
-            )
-            
-            await message.reply_text(
-                preview, 
-                reply_markup=_preview_keyboard(lang), 
-                parse_mode='HTML'
-            )
-            return EDITING_IDEA_CONTENT
+            # Show preview with updated date
+            return await _show_idea_preview(update, context, lang)
             
         except Exception as e:
-            logger.error(f"Error parsing date in ideas flow: {e}")
-            await message.reply_text(t(lang, 'invalid_date'))
+            logger.error(f"Error parsing date in ideas flow for user {user.id}: {e}")
+            await message.reply_text(
+                f"{t(lang, 'invalid_date')}\n\n{t(lang, 'date_format_example')}",
+                reply_markup=_date_edit_keyboard(lang)
+            )
             return EDITING_IDEA_DATE
     
-    await message.reply_text(t(lang, 'ideas_enter_date'))
+    # If not a valid text message, show help again
+    await message.reply_text(
+        f"{t(lang, 'ideas_enter_date')}\n\n{t(lang, 'date_format_example')}",
+        reply_markup=_date_edit_keyboard(lang)
+    )
     return EDITING_IDEA_DATE
