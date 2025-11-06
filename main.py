@@ -72,7 +72,16 @@ from src.handlers.help import help_command
 from src.handlers.chatid import chatid_command
 from src.handlers.legal_info import legal_info_handler, show_legal_info_menu
 
+# Support Handler
+from src.handlers.support import support_conversation_handler
+from src.handlers.mytickets import my_tickets_handler
+from src.handlers.admin import admin_handlers
+
 import asyncio
+import warnings
+from telegram.warnings import PTBUserWarning
+
+warnings.filterwarnings("ignore", category=PTBUserWarning)
 
 # ============================================================================
 # ERROR HANDLER
@@ -308,6 +317,14 @@ async def main():
         MessageHandler(filters.SUCCESSFUL_PAYMENT, successful_payment_callback)
     )
 
+    # Add support conversation handler
+    application.add_handler(support_conversation_handler())
+    application.add_handler(my_tickets_handler())
+    
+    # Add admin handlers
+    for handler in admin_handlers():
+        application.add_handler(handler)
+
     # ========================================================================
     # ADDITIONAL COMMANDS (Outside conversation - standalone)
     # ========================================================================
@@ -330,7 +347,7 @@ async def main():
     logger.info("📋 Registered handlers:")
     logger.info("   - Conversation Handler (main logic)")
     logger.info("   - Payment Handlers (Stars integration)")
-    logger.info("   - Command Handlers: /help, /paysupport")
+    logger.info("   - Command Handlers: /help, /paysupport, /support")
     logger.info("   - Error Handler")
 
     async with application:

@@ -12,6 +12,7 @@ TRANSLATIONS = {
         'subscription': 'Подписка',
         'settings': 'Настройки',
         'help': 'Помощь',
+        'support': 'Поддержка',
         'language': '🌐 Язык',
         'select_content_type': '📝 Выберите тип содержимого капсулы:',
         'content_text': '📄 Текст',
@@ -62,7 +63,7 @@ TRANSLATIONS = {
         'buy_stars_single': '⭐ Одна капсула - {stars} звезд',
         'buy_stars_year': '⭐ Год подписки - {stars} звезд',
         'language_changed': '🌐 Язык изменен',
-        'help_text': '❓ Помощь\n\nDigital Time Capsule позволяет создавать капсулы времени - сообщения, которые будут доставлены в будущем.\n\n🔐 Безопасность:\n• Все файлы шифруются\n• Хранение в Yandex S3\n• Никто не может прочитать ваши капсулы\n\n📋 Команды:\n/start - Главное меню\n/create - Создать капсулу\n/capsules - Мои капсулы\n/subscription - Подписка\n/help - Помощь\n/chatid - Узнать ID чата',
+        'help_text': '❓ Помощь\n\nDigital Time Capsule позволяет создавать капсулы времени - сообщения, которые будут доставлены в будущем.\n\n🔐 Безопасность:\n• Все файлы шифруются\n• Хранение в Yandex S3\n• Никто не может прочитать ваши капсулы\n\n📋 Команды:\n/start - Главное меню\n/create - Создать капсулу\n/capsules - Мои капсулы\n/subscription - Подписка\n/support - Поддержка\n/help - Помощь\n/chatid - Узнать ID чата',
         'delivery_title': '🎁 Капсула времени!',
         'delivery_text': 'Вы получили капсулу времени!\n\nСоздана: {created}\nОт: {sender}',
         'error_occurred': '❌ Произошла ошибка. Попробуйте позже.',
@@ -279,6 +280,49 @@ TRANSLATIONS = {
         'creation_cancelled': '❌ Создание капсулы отменено',
         'time_limit_exceeded': '❌ Выбранная дата превышает лимиты вашего тарифа.\n\nБесплатно: до {days} дней\nПремиум: до {years} лет',
 
+        # Support system
+        'support_welcome_message': '🤝 Добро пожаловать в систему поддержки!\n\nВыберите категорию обращения:',
+        'support_general_question': '❓ Общий вопрос',
+        'support_technical_issue': '🔧 Техническая проблема',
+        'support_billing_question': '💳 Вопрос по оплате',
+        'support_other': '📦 Другое',
+        'support_select_subject': 'Введите тему обращения:',
+        'current_selection': 'Текущий выбор:',
+        'support_subject_too_short': '❌ Тема слишком короткая. Введите не менее 3 символов.',
+        'support_subject_too_long': '❌ Тема слишком длинная. Введите не более 100 символов.',
+        'support_enter_message': 'Теперь опишите подробно вашу проблему или вопрос по теме "{category}":',
+        'support_message_too_short': '❌ Сообщение слишком короткое. Введите не менее 5 символов.',
+        'support_message_too_long': '❌ Сообщение слишком длинное. Введите не более 2000 символов.',
+        'support_confirmation': '''📋 Подтверждение обращения в поддержку:
+
+Категория: {category}
+Тема: {subject}
+Сообщение: {message}
+
+Всё верно?''',
+        'support_create_ticket': '✅ Создать обращение',
+        'support_edit_subject': '✏️ Редактировать тему',
+        'support_edit_message': '✏️ Редактировать сообщение',
+        'support_edit_subject_prompt': 'Введите новую тему обращения:',
+        'support_edit_message_prompt': 'Введите новое сообщение:',
+        'support_ticket_created': '✅ Обращение в поддержку #{ticket_id} создано!\n\nМы рассмотрим ваш запрос в ближайшее время.',
+        'support_ticket_creation_failed': '❌ Не удалось создать обращение в поддержку. Попробуйте снова.',
+        'no_support_tickets': 'У вас нет обращений в поддержку.',
+        'your_support_tickets': 'Ваши обращения в поддержку ({count}):',
+        'support_cancelled': '❌ Создание обращения отменено.',
+
+        # Ticket management
+        'no_open_tickets': 'Нет открытых обращений.',
+        'close': 'Закрыть',
+        'select_ticket_to_view': 'Выберите обращение для просмотра:',
+        'ticket_not_found': '❌ Обращение не найдено.',
+        'reply_to_ticket': 'Ответить',
+        'close_ticket': 'Закрыть обращение',
+        'back_to_list': 'Назад к списку',
+        'reply_sent': '✅ Ваш ответ отправлен.',
+        'open_tickets_header': 'Открытые обращения ({count}):',
+
+
         # Smart timing descriptions for preview
         'smart_morning_time': 'Завтра утром в 8:00',
         'smart_evening_time': 'Сегодня/завтра вечером в 20:00',
@@ -383,6 +427,7 @@ TRANSLATIONS = {
         'subscription': 'Subscription',
         'settings': 'Settings',
         'help': 'Help',
+        'support': 'Support',
         'language': '🌐 Language',
         'select_content_type': '📝 Select capsule content type:',
         'content_text': '📄 Text',
@@ -433,7 +478,7 @@ TRANSLATIONS = {
         'buy_stars_single': '⭐ Single capsule - {stars} stars',
         'buy_stars_year': '⭐ Yearly subscription - {stars} stars',
         'language_changed': '🌐 Language changed',
-        'help_text': '❓ Help\n\nDigital Time Capsule lets you create time capsules - messages that will be delivered in the future.\n\n🔐 Security:\n• All files are encrypted\n• Stored in Yandex S3\n• No one can read your capsules\n\n📋 Commands:\n/start - Main menu\n/create - Create capsule\n/capsules - My capsules\n/subscription - Subscription\n/help - Help\n/chatid - Get chat ID',
+        'help_text': '❓ Help\n\nDigital Time Capsule lets you create time capsules - messages that will be delivered in the future.\n\n🔐 Security:\n• All files are encrypted\n• Stored in Yandex S3\n• No one can read your capsules\n\n📋 Commands:\n/start - Main menu\n/create - Create capsule\n/capsules - My capsules\n/subscription - Subscription\n/support - Support\n/help - Help\n/chatid - Get chat ID',
         'delivery_title': '🎁 Time Capsule!',
         'delivery_text': 'You received a time capsule!\n\nCreated: {created}\nFrom: {sender}',
         'error_occurred': '❌ An error occurred. Try again later.',
@@ -745,6 +790,49 @@ If you have payment issues:
         'idea_wisdom_note_title': '💭 Note of wisdom',
         'idea_wisdom_note_text': 'Write a thought you want to revisit and the context it came from.',
         'idea_wisdom_note_hints': '💡 Thought\n📝 Context\n🔄 Application',
+
+        # Support system
+        'support_welcome_message': '🤝 Welcome to the support system!\n\nPlease select a category for your request:',
+        'support_general_question': '❓ General question',
+        'support_technical_issue': '🔧 Technical issue',
+        'support_billing_question': '💳 Billing question',
+        'support_other': '📦 Other',
+        'support_select_subject': 'Enter the subject of your request:',
+        'current_selection': 'Current selection:',
+        'support_subject_too_short': '❌ Subject is too short. Please enter at least 3 characters.',
+        'support_subject_too_long': '❌ Subject is too long. Please enter no more than 100 characters.',
+        'support_enter_message': 'Now describe in detail your issue or question regarding "{category}":',
+        'support_message_too_short': '❌ Message is too short. Please enter at least 5 characters.',
+        'support_message_too_long': '❌ Message is too long. Please enter no more than 2000 characters.',
+        'support_confirmation': '''📋 Support request confirmation:
+
+Category: {category}
+Subject: {subject}
+Message: {message}
+
+Is everything correct?''',
+        'support_create_ticket': '✅ Create request',
+        'support_edit_subject': '✏️ Edit subject',
+        'support_edit_message': '✏️ Edit message',
+        'support_edit_subject_prompt': 'Enter a new subject:',
+        'support_edit_message_prompt': 'Enter a new message:',
+        'support_ticket_created': '✅ Support request #{ticket_id} created!\n\nWe will review your request shortly.',
+        'support_ticket_creation_failed': '❌ Failed to create support request. Please try again.',
+        'no_support_tickets': 'You have no support requests.',
+        'your_support_tickets': 'Your support requests ({count}):',
+        'support_cancelled': '❌ Request creation cancelled.',
+
+        # Ticket management
+        'no_open_tickets': 'No open tickets.',
+        'close': 'Close',
+        'select_ticket_to_view': 'Select a ticket to view:',
+        'ticket_not_found': '❌ Ticket not found.',
+        'reply_to_ticket': 'Reply',
+        'close_ticket': 'Close Ticket',
+        'back_to_list': 'Back to List',
+        'reply_sent': '✅ Your reply has been sent.',
+        'open_tickets_header': 'Open Tickets ({count}):',
+
     }
 }
 

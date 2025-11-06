@@ -75,6 +75,29 @@ transactions = Table(
 )
 
 
+# Support tickets table
+support_tickets = Table('support_tickets', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
+    Column('subject', String(255), nullable=False),
+    Column('message', Text, nullable=False),
+    Column('status', String(50), nullable=False, default='open'),  # open, closed, pending
+    Column('created_at', DateTime, default=datetime.utcnow),
+    Column('updated_at', DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+)
+
+# Ticket responses table
+ticket_responses = Table('ticket_responses', metadata,
+    Column('id', Integer, primary_key=True),
+    Column('ticket_id', Integer, ForeignKey('support_tickets.id'), nullable=False, index=True),
+    Column('user_id', Integer, ForeignKey('users.id'), nullable=False),
+    Column('message', Text, nullable=False),
+    Column('created_at', DateTime, default=datetime.utcnow),
+    Column('is_admin_response', Boolean, default=False, nullable=False)
+)
+
+
+
 def init_db():
     """Initialize the database"""
     metadata.create_all(engine)
@@ -737,3 +760,141 @@ def get_user_data_by_telegram_id(telegram_id: int) -> Optional[Dict]:
     except Exception as e:
         logger.error(f"Error getting user data by telegram_id: {e}")
         return None
+
+
+# Support tickets functions
+def create_support_ticket(user_id: int, subject: str, message: str) -> Optional[int]:
+    """Create a new support ticket"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                insert(support_tickets).values(
+                    user_id=user_id,
+                    subject=subject,
+                    message=message,
+                    status='open'
+                )
+            )
+            conn.commit()
+            ticket_id = result.inserted_primary_key[0]
+            logger.info(f"✅ Support ticket {ticket_id} created for user {user_id}")
+            return ticket_id
+    except Exception as e:
+        logger.error(f"Error creating support ticket: {e}")
+        return None
+
+
+def get_user_support_tickets(user_id: int) -> list:
+    """Get all support tickets for a user"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(support_tickets)
+                .where(support_tickets.c.user_id == user_id)
+                .order_by(support_tickets.c.created_at.desc())
+            ).fetchall()
+
+            return [dict(row._mapping) for row in result] if result else []
+    except Exception as e:
+        logger.error(f"Error getting user support tickets: {e}")
+        return []
+
+
+def get_support_ticket(ticket_id: int, user_id: Optional[int] = None) -> Optional[Dict]:
+    """Get a specific support ticket by ID for a user"""
+    try:
+        with engine.connect() as conn:
+            stmt = select(support_tickets).where(support_tickets.c.id == ticket_id)
+            if user_id:
+                stmt = stmt.where(support_tickets.c.user_id == user_id)
+            
+            result = conn.execute(stmt).first()
+
+            return dict(result._mapping) if result else None
+    except Exception as e:
+        logger.error(f"Error getting support ticket {ticket_id}: {e}")
+        return None
+
+
+def update_support_ticket_status(ticket_id: int, status: str) -> bool:
+    """Update the status of a support ticket"""
+    try:
+        with engine.connect() as conn:
+            conn.execute(
+                sqlalchemy_update(support_tickets)
+                .where(support_tickets.c.id == ticket_id)
+                .values(status=status, updated_at=datetime.utcnow())
+            )
+            conn.commit()
+            logger.info(f"✅ Support ticket {ticket_id} status updated to {status}")
+            return True
+    except Exception as e:
+        logger.error(f"Error updating support ticket status: {e}")
+        return False
+
+
+def close_support_ticket(ticket_id: int, user_id: int) -> bool:
+    """Close a support ticket"""
+    return update_support_ticket_status(ticket_id, 'closed')
+
+
+def get_open_support_tickets() -> list:
+    """Get all open support tickets (for admin view)"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(support_tickets)
+                .where(support_tickets.c.status == 'open')
+                .order_by(support_tickets.c.created_at.asc())
+            ).fetchall()
+
+            return [dict(row._mapping) for row in result] if result else []
+    except Exception as e:
+        logger.error(f"Error getting open support tickets: {e}")
+        return []
+
+
+def add_ticket_response(ticket_id: int, user_id: int, message: str, is_admin: bool) -> Optional[int]:
+    """Add a response to a support ticket"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                insert(ticket_responses).values(
+                    ticket_id=ticket_id,
+                    user_id=user_id,
+                    message=message,
+                    is_admin_response=is_admin
+                )
+            )
+            conn.commit()
+            response_id = result.inserted_primary_key[0]
+            
+            # Update the ticket's updated_at timestamp
+            conn.execute(
+                sqlalchemy_update(support_tickets)
+                .where(support_tickets.c.id == ticket_id)
+                .values(updated_at=datetime.utcnow())
+            )
+            conn.commit()
+            
+            logger.info(f"✅ Response added to ticket {ticket_id} by user {user_id}")
+            return response_id
+    except Exception as e:
+        logger.error(f"Error adding ticket response: {e}")
+        return None
+
+
+def get_ticket_responses(ticket_id: int) -> list:
+    """Get all responses for a specific ticket"""
+    try:
+        with engine.connect() as conn:
+            result = conn.execute(
+                select(ticket_responses)
+                .where(ticket_responses.c.ticket_id == ticket_id)
+                .order_by(ticket_responses.c.created_at.asc())
+            ).fetchall()
+
+            return [dict(row._mapping) for row in result] if result else []
+    except Exception as e:
+        logger.error(f"Error getting ticket responses for ticket {ticket_id}: {e}")
+        return []

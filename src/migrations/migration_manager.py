@@ -98,7 +98,15 @@ def apply_migration(version: str, name: str, module) -> bool:
     logger.info(f"📦 Applying migration {version}: {name}")
 
     try:
-        # Check if migration was already applied
+        # Clean up previous failed attempts for this version
+        with engine.connect() as conn:
+            conn.execute(
+                text("DELETE FROM migration_history WHERE version = :version AND success = false"),
+                {"version": version}
+            )
+            conn.commit()
+
+        # Check if migration was already applied successfully
         applied = get_applied_migrations()
         if version in applied:
             logger.info(f"⏭️  Migration {version} already applied, skipping")
