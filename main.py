@@ -197,19 +197,21 @@ async def main():
             # Ideas States (FIXED PATTERNS)
             SELECTING_IDEAS_CATEGORY: [
                 CallbackQueryHandler(ideas_router, pattern='^ideas_cat:'),
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|main_menu|cancel)$')
+                CallbackQueryHandler(ideas_router, pattern='^(main_menu|cancel)$')
             ],
             SELECTING_IDEA_TEMPLATE: [
                 CallbackQueryHandler(ideas_router, pattern='^ideas_tpl:'),
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|ideas_back|main_menu|cancel)$')
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_menu|main_menu|cancel)$')
             ],
             EDITING_IDEA_CONTENT: [
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_edit_date|ideas_back|ideas_menu|main_menu|cancel)$'),
+                CallbackQueryHandler(ideas_router, pattern='^(ideas_use|ideas_edit|ideas_edit_date|ideas_back)$'),
+                CallbackQueryHandler(ideas_router, pattern='^(main_menu|cancel)$'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_text_input),
             ],
             EDITING_IDEA_DATE: [  # NEW STATE
                 CallbackQueryHandler(ideas_router, pattern='^ideas_quick_date:'),
-                CallbackQueryHandler(ideas_router, pattern='^(ideas_back|ideas_menu|main_menu|cancel|ideas_quick_date|ideas_back_to_preview)$'),
+                CallbackQueryHandler(ideas_router, pattern='^ideas_back_to_preview$'),
+                CallbackQueryHandler(ideas_router, pattern='^(main_menu|cancel)$'),
                 MessageHandler(filters.TEXT & ~filters.COMMAND, ideas_date_input),
             ],
 
@@ -280,7 +282,7 @@ async def main():
 
             # Legal Info States
             MANAGING_LEGAL_INFO: [
-                CallbackQueryHandler(legal_info_handler, pattern="^(legal_contacts|legal_requisites|legal_terms|legal_refund|legal_seller|legal_products|legal_privacy)$"),
+                CallbackQueryHandler(legal_info_handler, pattern="^(legal_terms|legal_refund|legal_seller|legal_products|legal_privacy)$"),
                 CallbackQueryHandler(show_legal_info_menu, pattern="^legal_info_menu$"),
                 CallbackQueryHandler(main_menu_handler, pattern="^main_menu$"),
             ],

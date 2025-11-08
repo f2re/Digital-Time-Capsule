@@ -11,12 +11,12 @@ from ..image_menu import send_menu_with_image
 def get_legal_info_keyboard(lang: str) -> InlineKeyboardMarkup:
     """Generate legal info menu keyboard"""
     keyboard = [
-        [InlineKeyboardButton(t(lang, 'legal_contacts'), callback_data='legal_contacts')],
-        [InlineKeyboardButton(t(lang, 'legal_requisites'), callback_data='legal_requisites')],
-        [InlineKeyboardButton(t(lang, 'legal_terms'), callback_data='legal_terms')],
-        [InlineKeyboardButton(t(lang, 'legal_refund'), callback_data='legal_refund')],
-        [InlineKeyboardButton(t(lang, 'seller_info'), callback_data='legal_seller')],
-        [InlineKeyboardButton(t(lang, 'product_catalog'), callback_data='legal_products')],
+        # [InlineKeyboardButton(t(lang, 'legal_contacts'), callback_data='legal_contacts')],
+        # [InlineKeyboardButton(t(lang, 'legal_requisites'), callback_data='legal_requisites')],
+        [InlineKeyboardButton(t(lang, 'legal_terms'), callback_data='legal_terms'),
+         InlineKeyboardButton(t(lang, 'legal_refund'), callback_data='legal_refund')],
+        [InlineKeyboardButton(t(lang, 'seller_info'), callback_data='legal_seller'),
+         InlineKeyboardButton(t(lang, 'product_catalog'), callback_data='legal_products')],
         [InlineKeyboardButton(t(lang, 'privacy_policy'), callback_data='legal_privacy')],
         [InlineKeyboardButton(t(lang, 'back'), callback_data='main_menu')]
     ]
