@@ -1,41 +1,18 @@
 version: '3.8'
 
 services:
-  postgres:
-    image: postgres:16-alpine
-    container_name: timecapsule_postgres
-    environment:
-      POSTGRES_DB: time_capsule
-      POSTGRES_USER: timecapsule_user
-      POSTGRES_PASSWORD: secure_password_change_this
-      PGDATA: /var/lib/postgresql/data/pgdata
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
-    networks:
-      - timecapsule_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U timecapsule_user -d time_capsule"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   bot:
     build: .
     container_name: timecapsule_bot
-    depends_on:
-      postgres:
-        condition: service_healthy
+    networks:
+      - timecapsule_network
     environment:
-      DATABASE_URL: postgresql://timecapsule_user:secure_password_change_this@postgres:5432/time_capsule
+      DATABASE_URL: postgresql://timecapsule_user:TimePassw0rd2000@timecapsule_postgres:5432/time_capsule
     env_file:
       - .env
     volumes:
       - ./data:/app/data
-    networks:
-      - timecapsule_network
     restart: unless-stopped
     command: >
       sh -c "
@@ -52,3 +29,4 @@ volumes:
 networks:
   timecapsule_network:
     driver: bridge
+    name: postgres_timecapsule_network
