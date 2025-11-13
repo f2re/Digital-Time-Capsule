@@ -8,7 +8,7 @@ services:
     networks:
       - timecapsule_network
     environment:
-      DATABASE_URL: postgresql://timecapsule_user:TimePassw0rd2000@timecapsule_postgres:5432/time_capsule
+      DATABASE_URL: ${DATABASE_URL}
     env_file:
       - .env
     volumes:
