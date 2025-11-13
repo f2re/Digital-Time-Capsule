@@ -4,6 +4,34 @@ from datetime import datetime, timezone
 import pytz
 from typing import Optional
 
+def get_timezone_for_language(language_code: str) -> str:
+    """
+    Determine appropriate timezone based on user's language code.
+    Returns timezone string compatible with pytz.
+    """
+    # Language to timezone mapping
+    language_timezone_map = {
+        'ru': 'Europe/Moscow',      # Russian -> Moscow Time (MSK)
+        'uk': 'Europe/Kiev',         # Ukrainian -> Kiev Time
+        'be': 'Europe/Minsk',        # Belarusian -> Minsk Time
+        'kk': 'Asia/Almaty',         # Kazakh -> Almaty Time
+        'uz': 'Asia/Tashkent',       # Uzbek -> Tashkent Time
+        'de': 'Europe/Berlin',       # German -> Berlin Time
+        'fr': 'Europe/Paris',        # French -> Paris Time
+        'es': 'Europe/Madrid',       # Spanish -> Madrid Time
+        'it': 'Europe/Rome',         # Italian -> Rome Time
+        'pt': 'Europe/Lisbon',       # Portuguese -> Lisbon Time
+        'tr': 'Europe/Istanbul',     # Turkish -> Istanbul Time
+        'ar': 'Asia/Dubai',          # Arabic -> Dubai Time
+        'zh': 'Asia/Shanghai',       # Chinese -> Shanghai Time
+        'ja': 'Asia/Tokyo',          # Japanese -> Tokyo Time
+        'ko': 'Asia/Seoul',          # Korean -> Seoul Time
+        'en': 'UTC',                 # English -> UTC (default)
+    }
+    
+    # Get timezone or default to UTC
+    return language_timezone_map.get(language_code[:2].lower(), 'UTC')
+
 def convert_local_to_utc(local_time: datetime, user_timezone: str = 'UTC') -> datetime:
     """Convert local datetime to UTC."""
     try:
